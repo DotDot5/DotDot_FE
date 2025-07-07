@@ -8,7 +8,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       <Header />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 p-6 bg-background">{children}</main>
+        {/* <main className="flex-1 p-6 bg-background">{children}</main> */}
+        <main className="flex-1 bg-background">{children}</main>
       </div>
     </div>
   );
