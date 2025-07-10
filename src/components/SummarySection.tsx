@@ -1,0 +1,10 @@
+export default function SummarySection() {
+  return (
+    <section>
+      <h3 className="text-xl font-bold mb-2">회의 내용 자동 요약</h3>
+      <p className="text-gray-700 text-sm leading-relaxed">
+        이번 회의에서는 프로젝트 2차 개발 일정과 각 기능 우선순위에 대해 심도 있게 논의했습니다...
+      </p>
+    </section>
+  );
+}
