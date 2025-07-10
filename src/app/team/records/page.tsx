@@ -1,0 +1,130 @@
+'use client';
+
+import { useState } from 'react';
+import { Button } from '@/components/internal/ui/button';
+import { Card, CardContent } from '@/components/internal/ui/card';
+import { Calendar, Clock, Users } from 'lucide-react';
+
+interface MeetingRecord {
+  id: number;
+  title: string;
+  date: string;
+  duration: string;
+  participants: number;
+}
+
+export default function MeetingRecordsPage() {
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 5;
+
+  const allMeetingRecords: MeetingRecord[] = Array.from({ length: 25 }, (_, index) => ({
+    id: index + 1,
+    title: '05.20(목) 제품 출시 회의',
+    date: '2025-05-20',
+    duration: '1시간 30분',
+    participants: 1,
+  }));
+
+  const totalPages = Math.ceil(allMeetingRecords.length / recordsPerPage);
+  const startIndex = (currentPage - 1) * recordsPerPage;
+  const currentRecords = allMeetingRecords.slice(startIndex, startIndex + recordsPerPage);
+
+  const handlePageChange = (page: number) => setCurrentPage(page);
+  const handlePrevious = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const handleNext = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+
+  return (
+    <div className="h-[calc(100vh-4rem)] overflow-y-auto bg-white">
+      {/* Yellow Header Section */}
+      <div className="bg-yellow-400 px-8 py-12">
+        <h1 className="text-white text-3xl font-bold">DotDot 팀의 회의록</h1>
+      </div>
+
+      {/* Main Content */}
+      <div className="px-8 py-8 bg-white rounded-t-3xl -mt-6 relative">
+        {/* Records Count */}
+        <div className="mb-6">
+          <p className="text-gray-700 text-lg font-medium">
+            총 {allMeetingRecords.length}개의 회의록
+          </p>
+        </div>
+
+        {/* Meeting Records List */}
+        <div className="space-y-4 mb-8">
+          {currentRecords.map((record) => (
+            <Card
+              key={record.id}
+              className="bg-gray-50 border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow"
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">{record.title}</h3>
+                    <div className="flex items-center gap-6 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span>{record.date}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        <span>{record.duration}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Users className="w-4 h-4" />
+                    <span>{record.participants}명 참석</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrevious}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm border-gray-300 text-gray-600 hover:bg-gray-50 bg-transparent"
+          >
+            이전
+          </Button>
+
+          {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+            const pageNumber = index + 1;
+            const isActive = pageNumber === currentPage;
+
+            return (
+              <Button
+                key={pageNumber}
+                variant={isActive ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handlePageChange(pageNumber)}
+                className={`w-10 h-10 p-0 text-sm ${
+                  isActive
+                    ? 'bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-400'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {pageNumber}
+              </Button>
+            );
+          })}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNext}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-sm border-gray-300 text-gray-600 hover:bg-gray-50 bg-transparent"
+          >
+            다음
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
