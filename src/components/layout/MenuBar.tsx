@@ -1,6 +1,17 @@
 const navItems = [
   { name: '홈', href: '/', icon: '🏠' },
-  { name: '팀', href: '/team', icon: '👥', subItems: ['DotDot', '팀 페이지', '일정', '소공전'] },
+  {
+    name: '팀',
+    href: '/team',
+    icon: '👥',
+    // subItems 배열의 각 객체에 name과 href 속성을 추가합니다.
+    subItems: [
+      { name: 'DotDot', href: '#' },
+      { name: '팀 페이지', href: '#' },
+      { name: '일정', href: '/calendar' }, // <--- '일정' 항목에 '/calendar' href 추가
+      { name: '소공전', href: '#' },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -15,11 +26,11 @@ export default function Sidebar() {
             {item.subItems &&
               item.subItems.map((sub) => (
                 <a
-                  key={sub}
-                  href="#"
+                  key={sub.name}
+                  href={sub.href}
                   className="ml-6 mt-1 block text-gray-600 text-sm hover:text-yellow-500"
                 >
-                  {sub}
+                  {sub.name}
                 </a>
               ))}
           </div>
