@@ -54,7 +54,7 @@ export default function MeetingPage() {
 
         {/* PDF 다운로드 버튼 */}
         <div className="flex justify-center mt-8">
-          <Button className="bg-primary text-white text-sm font-medium px-6 py-2 rounded-md">
+          <Button className="bg-[#FFD93D] text-white text-sm font-medium px-6 py-2 rounded-md">
             저장
           </Button>
         </div>
@@ -107,7 +107,7 @@ export default function MeetingPage() {
             <Button variant="outline" className="text-sm px-4 py-1">
               수정
             </Button>
-            <Button className="text-sm px-4 py-1 bg-primary text-white">이메일 전송</Button>
+            <Button className="text-sm px-4 py-1 bg-[#FFD93D] text-white">이메일 전송</Button>
           </div>
 
           <div className="flex justify-center mt-8">

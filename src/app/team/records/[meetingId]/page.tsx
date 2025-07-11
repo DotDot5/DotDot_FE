@@ -13,12 +13,12 @@ export default function MeetingDetailPage() {
             <p className="text-gray-500">2025-05-20</p>
 
             <div className="mt-4 space-y-3">
-              <div className="bg-yellow-100 px-3 py-1 inline-block rounded text-sm font-semibold">
+              <div className="bg-[#FFD93D] text-white px-3 py-1 inline-block rounded text-sm font-semibold">
                 회의 멤버
               </div>
               <p className="text-gray-700">고예린, 김세현, 김다은, 정태윤</p>
 
-              <div className="bg-yellow-100 px-4 py-1 inline-block rounded- text-sm font-semibold">
+              <div className="bg-[#FFD93D] text-white px-3 py-1 inline-block rounded text-sm font-semibold">
                 회의 안건
               </div>
               <ul className="list-disc list-inside text-gray-800 space-y-6">
@@ -43,7 +43,7 @@ export default function MeetingDetailPage() {
                 </li>
               </ul>
 
-              <div className="bg-yellow-100 px-3 py-1 inline-block rounded text-sm font-semibold">
+              <div className="bg-[#FFD93D] text-white px-3 py-1 inline-block rounded text-sm font-semibold">
                 회의 메모
               </div>
               <p className="text-gray-700">오늘 회의는...</p>
