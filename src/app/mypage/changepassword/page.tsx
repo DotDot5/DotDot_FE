@@ -1,4 +1,3 @@
-// app/changepassword/page.jsx (또는 pages/change-password.jsx)
 'use client'; // Next.js 13+ App Router를 사용한다면 필요합니다.
 
 import MainLayout from '@/components/layout/MainLayout';

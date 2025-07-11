@@ -1,12 +1,7 @@
-// pages/mypage.jsx 또는 app/mypage/page.jsx
 'use client';
 
 import MainLayout from '@/components/layout/MainLayout';
 import { useState } from 'react';
-// useRouter는 Link를 사용하지 않고도 프로그래매틱 내비게이션을 위해 여전히 유용할 수 있지만,
-// <a> 태그를 직접 사용한다면 필수는 아닙니다.
-// import { useRouter } from 'next/navigation'; // Next.js 13+ App Router
-// import { useRouter } from 'next/router'; // Next.js Pages Router
 
 import ProfileEditModal from './ProfileEditModal';
 import TermsModal from './TermsModal';
@@ -15,8 +10,6 @@ import WithdrawalConfirmModal from './WithdrawModal';
 import LogoutConfirmModal from './LogoutModal';
 
 export default function MyPage() {
-  // const router = useRouter(); // <a> 태그만 사용한다면 이 부분은 필요 없을 수 있습니다.
-
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);

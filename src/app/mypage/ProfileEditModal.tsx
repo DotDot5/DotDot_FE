@@ -1,29 +1,46 @@
 // components/ProfileEditModal.jsx
-'use client'; // <--- Add this line at the very top
+'use client'; // 클라이언트 컴포넌트임을 명시
 
 import { useState, useEffect } from 'react';
 
-export default function ProfileEditModal({ isOpen, onClose, onSave, initialData }) {
+export default function ProfileEditModal({
+  isOpen,
+  onClose,
+  onSave,
+  initialData, // initialData는 ProfileEditModal의 부모 컴포넌트에서 전달하는 초기값입니다.
+}) {
+  // initialData가 null/undefined일 경우를 대비해 빈 문자열로 초기화합니다.
   const [name, setName] = useState(initialData?.name || '');
   const [email, setEmail] = useState(initialData?.email || '');
   const [position, setPosition] = useState(initialData?.position || '');
-  const [department, setDepartment] = useState(initialData?.department || '');
+  const [department, setDepartment] = useState(initialData?.department || ''); // department 상태 추가
 
-  // 모달이 열릴 때마다 초기 데이터로 폼을 채움
+  // 모달이 열리거나 initialData가 변경될 때마다 폼 필드를 초기화합니다.
   useEffect(() => {
+    // isOpen이 true이고 initialData가 유효한 객체일 때만 상태를 업데이트합니다.
     if (isOpen && initialData) {
-      setName(initialData.name);
-      setEmail(initialData.email);
-      setPosition(initialData.position);
-      setDepartment(initialData.department);
+      setName(initialData.name || ''); // null/undefined 방지
+      setEmail(initialData.email || ''); // null/undefined 방지
+      setPosition(initialData.position || ''); // null/undefined 방지
+      setDepartment(initialData.department || ''); // department도 초기화
+    } else if (!isOpen) {
+      // 모달이 닫힐 때 상태를 초기화하여 다음 번 열릴 때 이전 값이 남지 않도록 합니다.
+      // 또는 초기화 로직을 제거하고, initialData를 통해 항상 최신 값을 받도록 할 수도 있습니다.
+      // 여기서는 초기화하는 것이 사용자 경험상 좋을 수 있습니다.
+      setName('');
+      setEmail('');
+      setPosition('');
+      setDepartment('');
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData]); // isOpen과 initialData가 변경될 때마다 useEffect 실행
 
+  // 모달이 닫혀있으면 아무것도 렌더링하지 않습니다.
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ name, email, position });
+    // onSave 호출 시 모든 필드 데이터를 전달합니다.
+    onSave({ name, email, position, department }); // ⭐ department도 함께 전달
     onClose(); // 저장 후 모달 닫기
   };
 
@@ -55,33 +72,39 @@ export default function ProfileEditModal({ isOpen, onClose, onSave, initialData 
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              readOnly
+              readOnly // 이메일은 읽기 전용으로 설정되어 있네요.
             />
           </div>
 
           <div className="mb-6">
-            <label htmlFor="modal-position" className="block text-gray-700 text-sm font-bold mb-2">
+            <label
+              htmlFor="modal-department" // ⭐ ID를 'modal-department'로 변경하여 고유하게 만듦
+              className="block text-gray-700 text-sm font-bold mb-2"
+            >
               부서
             </label>
             <input
               type="text"
-              id="modal-position"
+              id="modal-department" // ⭐ ID를 'modal-department'로 변경
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={department}
-              onChange={(e) => setPosition(e.target.value)}
+              value={department} // ⭐ 'department' 상태를 사용
+              onChange={(e) => setDepartment(e.target.value)} // ⭐ 'setDepartment' 함수를 사용
             />
           </div>
 
           <div className="mb-7">
-            <label htmlFor="modal-position" className="block text-gray-700 text-sm font-bold mb-2">
+            <label
+              htmlFor="modal-position" // ⭐ 이 ID는 이제 중복되지 않습니다.
+              className="block text-gray-700 text-sm font-bold mb-2"
+            >
               직책
             </label>
             <input
               type="text"
               id="modal-position"
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
+              value={position} // 'position' 상태를 사용
+              onChange={(e) => setPosition(e.target.value)} // 'setPosition' 함수를 사용
             />
           </div>
 

@@ -1,3 +1,4 @@
+// src/components/Modal.tsx
 'use client';
 
 import React from 'react';
@@ -6,11 +7,11 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
-  title?: string;
+  title?: string; // 팝업 제목 (선택 사항)
 }
 
 export default function Modal({ isOpen, onClose, children, title = '새 항목 추가' }: ModalProps) {
-  if (!isOpen) return null;
+  if (!isOpen) return null; // isOpen이 false면 아무것도 렌더링하지 않음
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4">

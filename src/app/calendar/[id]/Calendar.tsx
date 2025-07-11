@@ -6,18 +6,19 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './CalendarStyles.css';
 
-import { Task } from './TaskList';
+import { Task } from './TaskList'; // Task 인터페이스만 임포트
 
 type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
 
-interface MyCalendarProps {
+interface CalendarProps {
   value: Value;
   onChange: (date: Value) => void;
   tasks: Task[];
   onViewMonthTasks: (month: Date) => void;
-  //현재 담당자 필터 값
   currentAssigneeFilter: string;
+  // ⭐ 새로운 prop: 팀 이름 추가
+  teamName: string;
 }
 
 const formatDateForDot = (date: Date): string => {
@@ -30,10 +31,9 @@ export default function MyCalendar({
   tasks,
   onViewMonthTasks,
   currentAssigneeFilter,
-}: MyCalendarProps) {
-  // tasks를 필터링하여 점을 찍을 태스크만 선택
+  teamName, // ⭐ props로 teamName 받기
+}: CalendarProps) {
   const filteredTasksForDots = tasks.filter((task) => {
-    // '전체 팀원'이거나 해당 담당자에게 할당된 태스크만 점으로 표시
     return currentAssigneeFilter === '전체 팀원' || task.assignee === currentAssigneeFilter;
   });
 
@@ -48,7 +48,8 @@ export default function MyCalendar({
     <div className="flex flex-col items-center p-4">
       <div className="w-full max-w-sm">
         <div className="bg-yellow-400 rounded-t-lg p-4 text-left">
-          <h1 className="text-white text-lg font-bold">DotDot 팀의 워크스페이스</h1>
+          {/* ⭐ 여기를 teamName prop으로 변경 */}
+          <h1 className="text-white text-lg font-bold">{teamName} 팀의 워크스페이스</h1>
         </div>
         <div className="bg-gray-50 rounded-b-2xl p-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">

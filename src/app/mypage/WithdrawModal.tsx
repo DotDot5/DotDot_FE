@@ -16,7 +16,7 @@ export default function WithdrawalConfirmModal({ isOpen, onClose, onConfirm }) {
   `;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+    <div className="fixed inset-0 b flex items-center justify-center z-50  bg-gray-600 bg-opacity-50">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
         <h3 className="text-xl font-bold mb-4 border-b pb-2 text-red-600">회원 탈퇴</h3>
 

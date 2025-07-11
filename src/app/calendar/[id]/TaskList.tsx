@@ -1,3 +1,4 @@
+// src/components/TaskList.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react'; // useEffect 임포트
@@ -37,7 +38,7 @@ interface TaskListProps {
   onUpdateTask: (updatedTask: Task) => void;
   onDeleteTask: (taskId: number) => void;
   onToggleTaskStatus: (taskId: number) => void;
-  //현재 담당자 필터 값과 변경 함수
+  // ⭐ 새로운 prop: 현재 담당자 필터 값과 변경 함수
   currentAssigneeFilter: string;
   onAssigneeFilterChange: (newFilter: string) => void;
 }
@@ -51,9 +52,10 @@ export default function TaskList({
   onUpdateTask,
   onDeleteTask,
   onToggleTaskStatus,
-  currentAssigneeFilter,
-  onAssigneeFilterChange,
+  currentAssigneeFilter, // ⭐ prop으로 받음
+  onAssigneeFilterChange, // ⭐ prop으로 받음
 }: TaskListProps) {
+  // const [filter, setFilter] = useState('전체 팀원'); // ⭐ 이 상태는 이제 HomePage에서 관리
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
@@ -86,6 +88,7 @@ export default function TaskList({
       }
     }
 
+    // ⭐ 담당자 필터를 currentAssigneeFilter prop으로 사용
     const assigneeMatch =
       currentAssigneeFilter === '전체 팀원' || task.assignee === currentAssigneeFilter;
 
@@ -208,8 +211,8 @@ export default function TaskList({
           </span>
           <select
             className="flex-grow border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-            value={currentAssigneeFilter}
-            onChange={(e) => onAssigneeFilterChange(e.target.value)}
+            value={currentAssigneeFilter} // ⭐ prop으로 받은 값 사용
+            onChange={(e) => onAssigneeFilterChange(e.target.value)} // ⭐ prop으로 받은 함수 호출
           >
             <option>전체 팀원</option>
             <option>고예린</option>
@@ -219,11 +222,14 @@ export default function TaskList({
           </select>
         </div>
 
-        {}
+        {/* ⭐ 이 부분이 수정됩니다. */}
         <div className="bg-gray-100 rounded-lg p-4 mt-4">
           {' '}
-          {}
-          <h3 className="text-sm font-semibold text-gray-800 mb-3 text-left">오늘의 진행상황</h3> {}
+          {/* 연한 회색 배경과 패딩 추가 */}
+          <h3 className="text-sm font-semibold text-gray-800 mb-3 text-left">
+            오늘의 진행상황
+          </h3>{' '}
+          {/* 제목 추가 */}
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-green-500 text-lg font-bold">{completedTasksCount}</p>
@@ -240,8 +246,8 @@ export default function TaskList({
           </div>
         </div>
       </div>
-      {}
-      <div className="border-t border-gray-200 pt-6 mt-6"></div> {}
+      {/* ⭐ 여기에 구분선 추가 */}
+      <div className="border-t border-gray-200 pt-6 mt-6"></div> {/* mt-6으로 위쪽 여백 추가 */}
       <div className="space-y-4 max-h-[calc(100vh-25rem)] overflow-y-auto pr-2">
         {filteredTasks.map((task) => (
           <div
@@ -424,10 +430,10 @@ export default function TaskList({
               </select>
             </div>
           </div>
-          {}
-          <div className="border-t border-gray-200 pt-6 mt-6"></div> {}
+          {/* ⭐ 여기에 구분선 추가 */}
+          <div className="border-t border-gray-200 pt-6 mt-6"></div> {/* mt-6으로 위쪽 여백 추가 */}
           <div className="flex justify-between items-center mt-6">
-            {}
+            {/* 왼쪽 버튼 그룹: 삭제 (선택적) 및 취소 */}
             <div className="flex space-x-3">
               {editingTask && (
                 <button
@@ -447,7 +453,7 @@ export default function TaskList({
               </button>
             </div>
 
-            {}
+            {/* 오른쪽 버튼: 작업 수정 또는 작업 추가 */}
             <button
               type="submit"
               className="px-4 py-2 bg-yellow-400 text-white rounded-md hover:bg-yellow-500"

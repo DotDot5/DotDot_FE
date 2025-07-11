@@ -48,7 +48,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }) {
   `.trim();
 
   return (
-    <div className="fixed inset-0  flex items-center justify-center z-50 backdrop-blur-sm">
+    <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[80vh] flex flex-col">
         <h3 className="text-xl font-bold mb-4 border-b pb-2">개인정보 처리방침</h3>{' '}
         {/* 고정된 제목 */}

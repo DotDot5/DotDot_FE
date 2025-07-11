@@ -21,7 +21,7 @@ export default function WorkspaceMain() {
   const [teamMembers, setTeamMembers] = useState([
     { name: '다은', color: 'bg-purple-400', role: '' },
     { name: '예린', color: 'bg-green-500', role: '' },
-    { name: '세현', color: 'bg-yellow-400', role: '' },
+    { name: '세현', color: 'bg-[#FFD93D]', role: '' },
   ]);
 
   const [upcomingMeetings] = useState([
@@ -164,17 +164,17 @@ export default function WorkspaceMain() {
     // <div className="min-h-screen bg-white">
     <div className="h-[calc(100vh-4rem)] overflow-y-auto bg-white">
       {/* Yellow Header Section */}
-      <div className="bg-yellow-400 px-8 py-12">
+      <div className="bg-[#FFD93D] px-8 py-12">
         <h1 className="text-white text-3xl font-bold">DotDot 팀의 워크스페이스</h1>
       </div>
-
+      {/* bg-[#FFD93D] */}
       {/* Main Content Cards */}
       <div className="px-8 py-8 bg-white rounded-t-3xl -mt-6 relative">
         {/* Notice and Team Members Section - Split into two cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start">
           {/* Notice Section */}
           <div className="bg-gray-50 rounded-2xl p-6 shadow-sm">
-            <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 mb-4">
+            <Button className="bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 mb-4">
               공지사항
             </Button>
             {isEditingNotice ? (
@@ -198,7 +198,7 @@ export default function WorkspaceMain() {
                   <Button
                     size="sm"
                     onClick={handleNoticeSave}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black px-4 py-1 text-sm"
+                    className="bg-[#FFD93D] hover:bg-yellow-500 text-black px-4 py-1 text-sm"
                   >
                     저장
                   </Button>
@@ -221,14 +221,14 @@ export default function WorkspaceMain() {
                 <span className="text-lg font-bold text-gray-900">팀 멤버</span>
                 <Badge
                   variant="secondary"
-                  className="bg-yellow-400 text-black rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs"
+                  className="bg-[#FFD93D] text-black rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs"
                 >
                   {teamMembers.length}
                 </Badge>
               </div>
               <Button
                 size="sm"
-                className="bg-yellow-400 hover:bg-yellow-500 text-black rounded-full w-12 h-8 p-0 flex items-center justify-center"
+                className="bg-[#FFD93D] hover:bg-yellow-500 text-black rounded-full w-12 h-8 p-0 flex items-center justify-center"
                 onClick={handleOpenInviteModal}
               >
                 <Plus className="w-8 h-8 text-black stroke-black" />
@@ -287,7 +287,7 @@ export default function WorkspaceMain() {
                 <CardTitle className="text-xl font-bold text-gray-900">
                   다가오는 회의 목록
                 </CardTitle>
-                <Button className="flex items-center bg-yellow-400 hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 text-sm">
+                <Button className="flex items-center bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 text-sm">
                   회의 만들기 <Plus className="w-4 h-4" />
                 </Button>
               </div>
@@ -311,7 +311,7 @@ export default function WorkspaceMain() {
               <div className="flex justify-between items-center">
                 <CardTitle className="text-xl font-bold text-gray-900">지난 회의록</CardTitle>
                 <Button
-                  className="bg-yellow-400 hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 text-sm"
+                  className="bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 text-sm"
                   onClick={handleViewAllMeetings}
                 >
                   모두 보기
@@ -360,7 +360,7 @@ export default function WorkspaceMain() {
               </Button>
               <Button
                 onClick={handleInviteMember}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-6"
+                className="bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium px-6"
                 disabled={!inviteEmail.trim()}
               >
                 초대하기
@@ -410,7 +410,7 @@ export default function WorkspaceMain() {
               </Button>
               <Button
                 onClick={handleSaveMemberRole}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-8"
+                className="bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium px-8"
               >
                 저장하기
               </Button>
