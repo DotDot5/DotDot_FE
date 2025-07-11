@@ -12,7 +12,7 @@ const Badge = ({ className, variant = 'default', children, ...props }: BadgeProp
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium',
-        variant === 'secondary' ? 'bg-yellow-400 text-black' : 'bg-gray-100 text-gray-800',
+        variant === 'secondary' ? 'bg-[#FFD93D] text-black' : 'bg-gray-100 text-gray-800',
         className
       )}
       {...props}

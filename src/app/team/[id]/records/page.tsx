@@ -36,7 +36,7 @@ export default function MeetingRecordsPage() {
   return (
     <div className="h-[calc(100vh-4rem)] overflow-y-auto bg-white">
       {/* Yellow Header Section */}
-      <div className="bg-yellow-400 px-8 py-12">
+      <div className="bg-[#FFD93D] px-8 py-12">
         <h1 className="text-white text-3xl font-bold">DotDot 팀의 회의록</h1>
       </div>
 
@@ -105,7 +105,7 @@ export default function MeetingRecordsPage() {
                 onClick={() => handlePageChange(pageNumber)}
                 className={`w-10 h-10 p-0 text-sm ${
                   isActive
-                    ? 'bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-400'
+                    ? 'bg-[#FFD93D] hover:bg-yellow-500 text-black border-yellow-400'
                     : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                 }`}
               >
