@@ -95,9 +95,6 @@ export default function MeetingInfoPage() {
       <section className="mb-6 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-[#000000]">회의 안건</h2>
-          <button className="text-sm text-[#000000] border border-gray-300 rounded-full px-3 py-0.5 hover:bg-gray-100">
-            추가
-          </button>
         </div>
         {[
           {
