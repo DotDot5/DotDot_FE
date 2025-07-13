@@ -124,26 +124,13 @@ export default function WorkspaceMain() {
 
   const handleInviteMember = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/teams/${teamId}/members`,
-        { email: inviteEmail },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      await inviteMember(teamId, inviteEmail);
       toast.success('팀원 초대가 완료되었습니다!');
       await fetchTeamMembers();
       setIsInviteModalOpen(false);
       setInviteEmail('');
-      // 필요 시 팀원 목록 다시 조회 등 추가 로직
-    } catch (error) {
-      const err = error as AxiosError<{ code: string; message?: string }>;
-      const errorCode = err.response?.data?.code;
-
+    } catch (error: any) {
+      const errorCode = error.response?.data?.code;
       switch (errorCode) {
         case 'TEAM-002':
           toast.error('이미 팀에 속한 사용자입니다.');
@@ -175,26 +162,14 @@ export default function WorkspaceMain() {
       toast.error('수정할 팀원을 선택해주세요.');
       return;
     }
+
     try {
-      const token = localStorage.getItem('accessToken');
-
-      await axios.patch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/teams/${teamId}/members/${selectedMember.userId}/role`,
-        { role: memberRole },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      await updateMemberRole(teamId, selectedMember.userId, memberRole);
       toast.success('팀원 역할이 성공적으로 수정되었습니다.');
-      await fetchTeamMembers(); // 역할 수정 후 최신화
+      await fetchTeamMembers();
       setIsMemberModalOpen(false);
-    } catch (error) {
-      const err = error as AxiosError<{ code: string; message?: string }>;
-      const errorCode = err.response?.data?.code;
-
+    } catch (error: any) {
+      const errorCode = error.response?.data?.code;
       switch (errorCode) {
         case 'USER-001':
           toast.error('존재하지 않는 회원입니다.');
