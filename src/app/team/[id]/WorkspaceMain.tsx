@@ -10,12 +10,15 @@ import { Input } from '@/components/internal/ui/input';
 import { useRouter, useParams } from 'next/navigation';
 import axios, { AxiosError } from 'axios';
 import { toast } from 'sonner'; 
+import { useQuery } from '@tanstack/react-query';
+
 import {
   getTeamMembers,
   inviteMember,
   updateMemberRole,
   getTeamNotice,
   updateTeamNotice,
+  getTeamDetail
 } from '@/api/team';
 // import toast from 'react-hot-toast';
 
@@ -23,7 +26,7 @@ import {
 type Member = {
   userId: number;
   name: string;
-  profileImageUrl: string;
+  profileImageUrl: string | null;
   role: string;
 };
 
@@ -35,14 +38,18 @@ export default function WorkspaceMain() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   const [memberRole, setMemberRole] = useState('');
-  // const [teamMembers, setTeamMembers] = useState([
-  //   { name: '다은', color: 'bg-purple-400', role: '' },
-  //   { name: '예린', color: 'bg-green-500', role: '' },
-  //   { name: '세현', color: 'bg-[#FFD93D]', role: '' },
-  // ]);
+
   const [members, setMembers] = useState<Member[]>([]);
 
-  // const [userId, setUserId] = useState<number | null>(null); // 선택된 팀원 userId
+  const [teamName, setTeamName] = useState('');
+
+  const { id } = useParams<{ id: string }>();
+  const { data: teamDetail } = useQuery({
+    queryKey: ['teamDetail', id],
+    queryFn: () => getTeamDetail(id),
+    enabled: !!id, // id 있을 때만 요청
+    staleTime: 0,
+  });
 
   const [upcomingMeetings] = useState([
     { date: '05.20(목)', title: '제품 출시 회의', attendees: '1명 참석' },
@@ -239,13 +246,27 @@ export default function WorkspaceMain() {
   useEffect(() => {
     fetchTeamMembers();
   }, [teamId]);
+  
+  useEffect(() => {
+    const fetchTeamDetail = async () => {
+      if (!id) return;
+      try {
+        const data = await getTeamDetail(id);
+        setTeamName(data.teamName);
+      } catch (error) {
+        console.error('팀 정보 조회 실패', error);
+      }
+    };
+    fetchTeamDetail();
+  }, [id]);
+
 
   return (
     // <div className="min-h-screen bg-white">
     <div className="h-[calc(100vh-4rem)] overflow-y-auto bg-white">
       {/* Yellow Header Section */}
       <div className="bg-[#FFD93D] px-8 py-12">
-        <h1 className="text-white text-3xl font-bold">DotDot 팀의 워크스페이스</h1>
+        <h1 className="text-white text-3xl font-bold">{teamDetail?.teamName} 팀의 워크스페이스</h1>
       </div>
       {/* bg-[#FFD93D] */}
       {/* Main Content Cards */}
@@ -318,21 +339,21 @@ export default function WorkspaceMain() {
                 <Plus className="w-8 h-8 text-black stroke-black" />
               </Button>
             </div>
-            <div className="flex items-center justify-between">
-              {members.length > 5 && (memberScrollRef.current?.scrollLeft ?? 0) > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mr-2 p-0 h-auto hover:bg-transparent"
+            {/* 팀 멤버 리스트*/}
+            <div className="relative">
+              {/* 왼쪽 버튼 */}
+              {members.length > 5 && (
+                <button
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-md p-1"
                   onClick={handleScrollLeft}
                 >
                   <ChevronLeft className="w-5 h-5 text-gray-400" />
-                </Button>
+                </button>
               )}
-
+              {/* 멤버 리스트 */}
               <div
                 ref={memberScrollRef}
-                className="flex items-center gap-3 overflow-x-hidden flex-1"
+                className="flex items-center gap-3 overflow-x-auto px-8 scrollbar-hide"
                 style={{ scrollBehavior: 'smooth' }}
               >
                 {members.map((member, index) => (
@@ -360,15 +381,14 @@ export default function WorkspaceMain() {
                   </Avatar>
                 ))}
               </div>
+              {/* 오른쪽 버튼 */}
               {members.length > 5 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-2 p-0 h-auto hover:bg-transparent"
+                <button
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-md p-1"
                   onClick={handleScrollRight}
                 >
                   <ChevronRight className="w-5 h-5 text-gray-400" />
-                </Button>
+                </button>
               )}
             </div>
           </div>
@@ -382,7 +402,10 @@ export default function WorkspaceMain() {
                 <CardTitle className="text-xl font-bold text-gray-900">
                   다가오는 회의 목록
                 </CardTitle>
-                <Button className="flex items-center bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 text-sm">
+                <Button
+                  onClick={() => router.push('/team/1?modal=create')}
+                  className="flex items-center bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 text-sm"
+                >
                   회의 만들기 <Plus className="w-4 h-4" />
                 </Button>
               </div>
@@ -429,7 +452,7 @@ export default function WorkspaceMain() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">
-              초대할 팀 워크스페이스: <span className="font-bold">DotDot</span>
+              초대할 팀 워크스페이스: <span className="font-bold">{teamDetail?.teamName}</span>
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">

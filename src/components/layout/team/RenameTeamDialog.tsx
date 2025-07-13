@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { Team } from '@/types/team';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/internal/ui/dialog';
+import { updateTeamName } from '@/api/team'; 
+import { useQueryClient } from '@tanstack/react-query';
+
 
 interface RenameTeamDialogProps {
   open: boolean;
@@ -12,12 +15,27 @@ interface RenameTeamDialogProps {
 }
 
 export default function RenameTeamDialog({ open, team, onClose, onRename }: RenameTeamDialogProps) {
+  const queryClient = useQueryClient();
   const [name, setName] = useState(team.name);
 
-  const handleRename = () => {
+  const handleRename = async () => {
     if (!name.trim()) return;
 
-    onRename({ ...team, name });
+    try {
+      await updateTeamName(team.id, name); //API 호출
+      // queryClient.invalidateQueries({ queryKey: ['teamDetail', team.id] });
+      const teamIdStr = String(team.id);
+
+      queryClient.invalidateQueries({ queryKey: ['teamDetail', teamIdStr] });
+      await queryClient.refetchQueries({ queryKey: ['teamDetail', teamIdStr] });
+      queryClient.invalidateQueries({ queryKey: ['teamList'] });
+      
+      onRename({ ...team, name }); // 로컬 상태 반영
+      onClose(); //다이얼로그 닫기
+    } catch (error) {
+      console.error('팀 이름 수정 실패:', error);
+      // 필요 시 사용자 알림 로직 추가
+    }
   };
 
   return (
