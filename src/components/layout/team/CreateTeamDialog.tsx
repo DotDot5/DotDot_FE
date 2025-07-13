@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Team } from '@/types/team';
+import { createTeam } from '@/api/team'; // 경로는 실제 위치에 맞게 조정
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/internal/ui/dialog';
 
 interface CreateTeamDialogProps {
@@ -13,15 +14,22 @@ interface CreateTeamDialogProps {
 export default function CreateTeamDialog({ open, onClose, onCreate }: CreateTeamDialogProps) {
   const [name, setName] = useState('');
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) return;
 
-    const newTeam: Team = {
-      id: Date.now(),
-      name,
-    };
-    onCreate(newTeam);
-    setName('');
+    try {
+      const createdTeamId = await createTeam(name);
+      const newTeam: Team = {
+        id: createdTeamId,
+        name,
+      };
+      onCreate(newTeam); // 부모에게 전달
+      setName('');
+      onClose(); // 모달 닫기
+    } catch (error) {
+      console.error('팀 생성 실패:', error);
+      alert('팀 생성에 실패했어요. 다시 시도해주세요.');
+    }
   };
 
   return (

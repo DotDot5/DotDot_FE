@@ -1,9 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { getTeamDetail } from '@/api/team';
 import { Button } from '@/components/internal/ui/button';
 import { Card, CardContent } from '@/components/internal/ui/card';
 import { Calendar, Clock, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+
 
 interface MeetingRecord {
   id: number;
@@ -16,6 +20,26 @@ interface MeetingRecord {
 export default function MeetingRecordsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 5;
+  // const [teamName, setTeamName] = useState('');
+  const { id } = useParams<{ id: string }>();
+  const { data: teamDetail } = useQuery({
+    queryKey: ['teamDetail', id],
+    queryFn: () => getTeamDetail(id),
+    enabled: !!id, // id 있을 때만 요청
+    staleTime: 0,
+  });
+  // useEffect(() => {
+  //   const fetchTeamDetail = async () => {
+  //     if (!id) return;
+  //     try {
+  //       const data = await getTeamDetail(id);
+  //       setTeamName(data.teamName);
+  //     } catch (error) {
+  //       console.error('팀 정보 조회 실패', error);
+  //     }
+  //   };
+  //   fetchTeamDetail();
+  // }, [id]);
 
   const allMeetingRecords: MeetingRecord[] = Array.from({ length: 25 }, (_, index) => ({
     id: index + 1,
@@ -37,7 +61,7 @@ export default function MeetingRecordsPage() {
     <div className="h-[calc(100vh-4rem)] overflow-y-auto bg-white">
       {/* Yellow Header Section */}
       <div className="bg-[#FFD93D] px-8 py-12">
-        <h1 className="text-white text-3xl font-bold">DotDot 팀의 회의록</h1>
+        <h1 className="text-white text-3xl font-bold">{teamDetail?.teamName} 팀의 회의록</h1>
       </div>
 
       {/* Main Content */}

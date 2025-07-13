@@ -1,18 +1,19 @@
 // src/components/layout/team/teamsidebar.jsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import CreateTeamDialog from '@/components/layout/team/CreateTeamDialog'; // Adjust path if necessary
 import RenameTeamDialog from '@/components/layout/team/RenameTeamDialog'; // Adjust path if necessary
 import { Team } from '@/types/team'; // Adjust path if necessary
+import { getMyTeams } from '@/api/team'; // 
 
 export default function TeamSidebar() {
-  const [teams, setTeams] = useState<Team[]>([
-    { id: 1, name: 'DotDot' },
-    { id: 2, name: '소공전' },
-  ]);
-
+  // const [teams, setTeams] = useState<Team[]>([
+  //   { id: 1, name: 'DotDot' },
+  //   { id: 2, name: '소공전' },
+  // ]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -22,6 +23,23 @@ export default function TeamSidebar() {
     setEditingTeam(team);
     setOpenMenuId(null); // Close menu
   };
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const data = await getMyTeams();
+        const mapped = data.map((t: { teamId: number; teamName: string }) => ({
+          id: t.teamId,
+          name: t.teamName,
+        }));
+        setTeams(mapped);
+      } catch (e) {
+        console.error('팀 목록 로딩 실패:', e);
+      }
+    };
+
+    fetchTeams();
+  }, []);
+
 
   return (
     <div>
