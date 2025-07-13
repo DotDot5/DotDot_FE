@@ -13,15 +13,6 @@ body:
       required: true
 
   - type: textarea
-    id: feature-reason
-    attributes:
-      label: "✅ 필요 이유"
-      description: "이 기능이 왜 필요한가요?"
-      placeholder: "예: 사용자들이 회의 도중 바로 내용을 확인하고 편집할 수 있도록 하기 위함"
-    validations:
-      required: true
-
-  - type: textarea
     id: feature-details
     attributes:
       label: "⚙️ 구현 내용"
@@ -45,7 +36,7 @@ body:
       label: "🔍 예상 작업 범위"
       description: "이 기능에 포함될 작업 범위를 체크해주세요."
       options:
-        - label: "[ ] 프론트엔드 UI 개발"
-        - label: "[ ] 백엔드 API 연동"
-        - label: "[ ] 상태 관리 / 데이터 흐름"
-        - label: "[ ] 테스트 코드 작성"
+        - label: "프론트엔드 UI 개발"
+        - label: "백엔드 API 연동"
+        - label: "상태 관리 / 데이터 흐름"
+        - label: "테스트 코드 작성"

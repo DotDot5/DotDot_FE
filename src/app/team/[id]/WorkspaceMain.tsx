@@ -7,22 +7,36 @@ import { Avatar, AvatarFallback } from '@/components/internal/ui/avatar';
 import { ChevronRight, ChevronLeft, Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/internal/ui/dialog';
 import { Input } from '@/components/internal/ui/input';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
+import axios, { AxiosError } from 'axios';
+import { toast } from 'sonner'; 
+import { getTeamMembers, inviteMember, updateMemberRole } from '@/api/team';
+// import toast from 'react-hot-toast';
+
+
+type Member = {
+  userId: number;
+  name: string;
+  profileImageUrl: string;
+  role: string;
+};
 
 export default function WorkspaceMain() {
   const router = useRouter();
+  const params = useParams();
+  const teamId = params.id as string;
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<{
-    name: string;
-    color: string;
-    role?: string;
-  } | null>(null);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
   const [memberRole, setMemberRole] = useState('');
-  const [teamMembers, setTeamMembers] = useState([
-    { name: '다은', color: 'bg-purple-400', role: '' },
-    { name: '예린', color: 'bg-green-500', role: '' },
-    { name: '세현', color: 'bg-[#FFD93D]', role: '' },
-  ]);
+  // const [teamMembers, setTeamMembers] = useState([
+  //   { name: '다은', color: 'bg-purple-400', role: '' },
+  //   { name: '예린', color: 'bg-green-500', role: '' },
+  //   { name: '세현', color: 'bg-[#FFD93D]', role: '' },
+  // ]);
+  const [members, setMembers] = useState<Member[]>([]);
+
+  // const [userId, setUserId] = useState<number | null>(null); // 선택된 팀원 userId
 
   const [upcomingMeetings] = useState([
     { date: '05.20(목)', title: '제품 출시 회의', attendees: '1명 참석' },
@@ -48,24 +62,46 @@ export default function WorkspaceMain() {
   const memberScrollRef = useRef<HTMLDivElement>(null);
 
   const [isEditingNotice, setIsEditingNotice] = useState(false);
-  const [noticeText, setNoticeText] = useState(
-    '다가오는 제품 최근 회의는 중요한 안건을 다룰 예정이니, 모든 팀원들의 참석이 필수입니다'
-  );
+  const [noticeText, setNoticeText] = useState<string>('');
+  const [originalNotice, setOriginalNotice] = useState<string>(''); // 원본 공지사항 저장
 
   const handleNoticeEdit = () => {
     setIsEditingNotice(true);
   };
 
-  const handleNoticeSave = () => {
-    setIsEditingNotice(false);
-    console.log('공지사항 저장:', noticeText);
+  const fetchTeamMembers = async () => {
+    try {
+      const data = await getTeamMembers(teamId);
+      setMembers(data);
+    } catch (error) {
+      toast.error('팀원 정보를 불러오는 데 실패했습니다.');
+    }
+  };
+
+  const handleNoticeSave = async () => {
+    const accessToken = localStorage.getItem('accessToken');
+    try {
+      const response = await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/teams/${teamId}/notice`,
+        { notice: noticeText }, // body
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`, // 필요 시
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      console.log('공지사항 수정 성공:', response.data);
+      setOriginalNotice(noticeText);
+      setIsEditingNotice(false); // 편집 모드 종료
+    } catch (error) {
+      console.error('공지사항 수정 실패:', error);
+    }
   };
 
   const handleNoticeCancel = () => {
+    setNoticeText(originalNotice);
     setIsEditingNotice(false);
-    setNoticeText(
-      '다가오는 제품 최근 회의는 중요한 안건을 다룰 예정이니, 모든 팀원들의 참석이 필수입니다'
-    );
   };
 
   const handleScrollRight = () => {
@@ -86,19 +122,41 @@ export default function WorkspaceMain() {
     }
   };
 
-  const handleInviteMember = () => {
-    if (inviteEmail.trim()) {
-      // 새로운 팀 멤버 추가
-      const newMember = {
-        name: inviteEmail.split('@')[0], // 이메일에서 이름 추출
-        color: `bg-${['purple', 'green', 'blue', 'red', 'pink', 'indigo', 'orange'][Math.floor(Math.random() * 7)]}-400`,
-        role: '',
-      };
-      setTeamMembers((prev) => [...prev, newMember]);
+  const handleInviteMember = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/teams/${teamId}/members`,
+        { email: inviteEmail },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-      console.log(`팀 멤버 초대: ${inviteEmail}`);
-      setInviteEmail('');
+      toast.success('팀원 초대가 완료되었습니다!');
+      await fetchTeamMembers();
       setIsInviteModalOpen(false);
+      setInviteEmail('');
+      // 필요 시 팀원 목록 다시 조회 등 추가 로직
+    } catch (error) {
+      const err = error as AxiosError<{ code: string; message?: string }>;
+      const errorCode = err.response?.data?.code;
+
+      switch (errorCode) {
+        case 'TEAM-002':
+          toast.error('이미 팀에 속한 사용자입니다.');
+          break;
+        case 'USER-001':
+          toast.error('존재하지 않는 사용자입니다.');
+          break;
+        case 'COMMON-006':
+          toast.error('올바른 이메일 형식이어야 합니다.');
+          break;
+        default:
+          toast.error('알 수 없는 오류가 발생했습니다.');
+      }
     }
   };
 
@@ -106,28 +164,59 @@ export default function WorkspaceMain() {
     setIsInviteModalOpen(true);
   };
 
-  const handleMemberClick = (member: { name: string; color: string; role?: string }) => {
+  const handleMemberClick = (member: Member) => {
     setSelectedMember(member);
     setMemberRole(member.role || '');
     setIsMemberModalOpen(true);
   };
 
-  const handleSaveMemberRole = () => {
-    if (selectedMember) {
-      setTeamMembers((prev) =>
-        prev.map((member) =>
-          member.name === selectedMember.name ? { ...member, role: memberRole } : member
-        )
+  const handleSaveMemberRole = async () => {
+    if (!selectedMember) {
+      toast.error('수정할 팀원을 선택해주세요.');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('accessToken');
+
+      await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/teams/${teamId}/members/${selectedMember.userId}/role`,
+        { role: memberRole },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
+
+      toast.success('팀원 역할이 성공적으로 수정되었습니다.');
+      await fetchTeamMembers(); // 역할 수정 후 최신화
       setIsMemberModalOpen(false);
-      setMemberRole('');
-      setSelectedMember(null);
+    } catch (error) {
+      const err = error as AxiosError<{ code: string; message?: string }>;
+      const errorCode = err.response?.data?.code;
+
+      switch (errorCode) {
+        case 'USER-001':
+          toast.error('존재하지 않는 회원입니다.');
+          break;
+        case 'TEAM-003':
+          toast.error('팀에 속하지 않은 사용자입니다.');
+          break;
+        case 'TEAM-004':
+          toast.error('해당 팀에 대한 접근 권한이 없습니다.');
+          break;
+        case 'USER-006':
+          toast.error('로그인이 필요합니다.');
+          break;
+        default:
+          toast.error('역할 수정 중 오류가 발생했습니다.');
+      }
     }
   };
 
   const handleDeleteMember = () => {
     if (selectedMember) {
-      setTeamMembers((prev) => prev.filter((member) => member.name !== selectedMember.name));
+      setMembers((prev) => prev.filter((member) => member.name !== selectedMember.name));
       setIsMemberModalOpen(false);
       setMemberRole('');
       setSelectedMember(null);
@@ -135,7 +224,9 @@ export default function WorkspaceMain() {
   };
 
   const handleViewAllMeetings = () => {
-    router.push('/team/records');
+    if (typeof teamId === 'string') {
+      router.push(`/team/${teamId}/records`);
+    }
   };
 
   const handleBackToWorkspace = () => {
@@ -150,7 +241,7 @@ export default function WorkspaceMain() {
   useEffect(() => {
     const handleScroll = () => {
       // 강제로 리렌더링을 위해 빈 상태 업데이트
-      setTeamMembers((prev) => [...prev]);
+      setMembers((prev) => [...prev]);
     };
 
     const scrollElement = memberScrollRef.current;
@@ -159,6 +250,46 @@ export default function WorkspaceMain() {
       return () => scrollElement.removeEventListener('scroll', handleScroll);
     }
   }, []);
+
+  useEffect(() => {
+    const fetchNotice = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+          console.error('인증 토큰 없음');
+          return;
+        }
+
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/teams/${teamId}/notice`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error(`공지사항 조회 실패 (status: ${res.status})`);
+        }
+
+        const result = await res.json();
+        setNoticeText(result.data.notice); // 화면 표시용
+        setOriginalNotice(result.data.notice); // 취소 시 복원용
+      } catch (err) {
+        console.error('공지사항 불러오기 실패:', err);
+      }
+    };
+
+    if (typeof teamId === 'string') {
+      fetchNotice();
+    }
+  }, [teamId]);
+
+  useEffect(() => {
+    fetchTeamMembers();
+  }, [teamId]);
 
   return (
     // <div className="min-h-screen bg-white">
@@ -209,7 +340,11 @@ export default function WorkspaceMain() {
                 className="text-gray-700 text-sm leading-relaxed cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
                 onClick={handleNoticeEdit}
               >
-                {noticeText}
+                {noticeText.trim() === '' ? (
+                  <span className="text-gray-400">공지사항을 입력하세요...</span>
+                ) : (
+                  noticeText
+                )}
               </p>
             )}
           </div>
@@ -223,7 +358,7 @@ export default function WorkspaceMain() {
                   variant="secondary"
                   className="bg-[#FFD93D] text-black rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs"
                 >
-                  {teamMembers.length}
+                  {members.length}
                 </Badge>
               </div>
               <Button
@@ -235,7 +370,7 @@ export default function WorkspaceMain() {
               </Button>
             </div>
             <div className="flex items-center justify-between">
-              {teamMembers.length > 5 && (memberScrollRef.current?.scrollLeft ?? 0) > 0 && (
+              {members.length > 5 && (memberScrollRef.current?.scrollLeft ?? 0) > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -251,21 +386,32 @@ export default function WorkspaceMain() {
                 className="flex items-center gap-3 overflow-x-hidden flex-1"
                 style={{ scrollBehavior: 'smooth' }}
               >
-                {teamMembers.map((member, index) => (
+                {members.map((member, index) => (
                   <Avatar
                     key={index}
                     className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
                     onClick={() => handleMemberClick(member)}
                   >
-                    <AvatarFallback
-                      className={`${member.color} text-white text-sm font-medium rounded-full`}
-                    >
-                      {member.name}
-                    </AvatarFallback>
+                    {member.profileImageUrl && member.profileImageUrl !== 'basic' ? (
+                      <img
+                        src={member.profileImageUrl}
+                        alt={member.name}
+                        className="w-full h-full object-cover rounded-full"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = ''; // fallback 유도
+                        }}
+                      />
+                    ) : (
+                      <AvatarFallback className="w-full h-full flex items-center justify-center bg-[#FFD93D] text-white font-bold text-sm rounded-full">
+                        {member.name}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                 ))}
               </div>
-              {teamMembers.length > 5 && (
+              {members.length > 5 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -377,13 +523,25 @@ export default function WorkspaceMain() {
               {selectedMember && (
                 <>
                   <Avatar className="w-16 h-16">
-                    <AvatarFallback
-                      className={`${selectedMember.color} text-white text-lg font-medium rounded-full`}
-                    >
-                      {selectedMember.name}
-                    </AvatarFallback>
+                    {selectedMember.profileImageUrl &&
+                    selectedMember.profileImageUrl !== 'basic' ? (
+                      <img
+                        src={selectedMember.profileImageUrl}
+                        alt={selectedMember.name}
+                        className="w-full h-full object-cover rounded-full"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = ''; // fallback 유도
+                        }}
+                      />
+                    ) : (
+                      <AvatarFallback className="w-full h-full flex items-center justify-center bg-[#FFD93D] text-white font-bold text-sm rounded-full">
+                        {selectedMember.name}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
-                  <h2 className="text-xl font-semibold">김{selectedMember.name}</h2>
+                  <h2 className="text-xl font-semibold">{selectedMember.name}</h2>
                 </>
               )}
             </div>
