@@ -1,9 +1,11 @@
+// src/components/layout/team/teamsidebar.jsx
 'use client';
 
 import { useState } from 'react';
-import CreateTeamDialog from './CreateTeamDialog';
-import RenameTeamDialog from './RenameTeamDialog';
-import { Team } from '@/types/team';
+import Link from 'next/link';
+import CreateTeamDialog from '@/components/layout/team/CreateTeamDialog'; // Adjust path if necessary
+import RenameTeamDialog from '@/components/layout/team/RenameTeamDialog'; // Adjust path if necessary
+import { Team } from '@/types/team'; // Adjust path if necessary
 
 export default function TeamSidebar() {
   const [teams, setTeams] = useState<Team[]>([
@@ -18,12 +20,12 @@ export default function TeamSidebar() {
   const handleAddClick = () => setShowCreateDialog(true);
   const handleRenameClick = (team: Team) => {
     setEditingTeam(team);
-    setOpenMenuId(null); // 메뉴 닫기
+    setOpenMenuId(null); // Close menu
   };
 
   return (
     <div>
-      {/* 상단 '팀' 제목 + + 버튼 */}
+      {/* Top 'Team' title + + button */}
       <div className="flex items-center justify-between group cursor-pointer">
         <div className="flex items-center gap-2 text-gray-800 font-semibold">👥 팀</div>
         <button
@@ -34,14 +36,17 @@ export default function TeamSidebar() {
         </button>
       </div>
 
-      {/* 팀 리스트 */}
+      {/* Team list */}
       <div className="ml-6 mt-2 flex flex-col gap-1">
         {teams.map((team) => (
           <div key={team.id} className="group relative" onMouseLeave={() => setOpenMenuId(null)}>
             <div className="flex justify-between items-center">
-              <a className="text-sm text-black font-medium">{team.name}</a>
+              {/* This link should ideally go to a team-specific overview page */}
+              <Link href={`/team/${team.id}`} className="text-sm text-black font-medium">
+                {team.name}
+              </Link>
 
-              {/* 햄버거 버튼: hover 시 보이도록 */}
+              {/* Hamburger button: show on hover */}
               <button
                 className="text-xs text-gray-500 opacity-0 group-hover:opacity-100"
                 onClick={() => setOpenMenuId((prev) => (prev === team.id ? null : team.id))}
@@ -50,24 +55,34 @@ export default function TeamSidebar() {
               </button>
             </div>
 
-            {/* 이름 바꾸기 메뉴: 클릭 시 보이도록 */}
+            {/* Rename menu: show on click */}
             {openMenuId === team.id && (
               <div className="absolute right-0 mt-1 bg-white shadow p-1 text-sm rounded z-10">
-                <button onClick={() => handleRenameClick(team)}>이름 바꾸기</button>
+                <button
+                  onClick={() => handleRenameClick(team)}
+                  className="block w-full text-left px-2 py-1 hover:bg-gray-100"
+                >
+                  이름 바꾸기
+                </button>
               </div>
             )}
 
-            {/* 하위 링크 */}
+            {/* Sub-links */}
             <div className="ml-4 text-xs text-gray-600">
-              <a href="#">팀 페이지</a>
-              <br />
-              <a href="#">일정</a>
+              <Link href={`/team/${team.id}`} className="block hover:underline">
+                팀 페이지
+              </Link>
+              <Link href={`/calendar/${team.id}`} className="block hover:underline">
+                {' '}
+                {/* 👈 Changed href */}
+                일정
+              </Link>
             </div>
           </div>
         ))}
       </div>
 
-      {/* 새 팀 생성 다이얼로그 */}
+      {/* Create Team Dialog */}
       {showCreateDialog && (
         <CreateTeamDialog
           open={showCreateDialog}
@@ -79,7 +94,7 @@ export default function TeamSidebar() {
         />
       )}
 
-      {/* 이름 변경 다이얼로그 */}
+      {/* Rename Team Dialog */}
       {editingTeam && (
         <RenameTeamDialog
           open={!!editingTeam}

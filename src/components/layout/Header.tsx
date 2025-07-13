@@ -7,9 +7,11 @@ export default function Header() {
           📩
           <span className="absolute top-0 right-0 bg-yellow-400 text-xs px-1 rounded-full">3</span>
         </button>
-        <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm">
-          사용자
-        </div>
+        <a href="/mypage" className="block">
+          <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm cursor-pointer hover:bg-gray-400 transition-colors duration-200">
+            사용자
+          </div>
+        </a>
       </div>
     </header>
   );
