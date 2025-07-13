@@ -10,7 +10,13 @@ import { Input } from '@/components/internal/ui/input';
 import { useRouter, useParams } from 'next/navigation';
 import axios, { AxiosError } from 'axios';
 import { toast } from 'sonner'; 
-import { getTeamMembers, inviteMember, updateMemberRole } from '@/api/team';
+import {
+  getTeamMembers,
+  inviteMember,
+  updateMemberRole,
+  getTeamNotice,
+  updateTeamNotice,
+} from '@/api/team';
 // import toast from 'react-hot-toast';
 
 
@@ -79,21 +85,11 @@ export default function WorkspaceMain() {
   };
 
   const handleNoticeSave = async () => {
-    const accessToken = localStorage.getItem('accessToken');
     try {
-      const response = await axios.patch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/teams/${teamId}/notice`,
-        { notice: noticeText }, // body
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`, // 필요 시
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      console.log('공지사항 수정 성공:', response.data);
+      await updateTeamNotice(teamId, noticeText);
+      console.log('공지사항 수정 성공');
       setOriginalNotice(noticeText);
-      setIsEditingNotice(false); // 편집 모드 종료
+      setIsEditingNotice(false);
     } catch (error) {
       console.error('공지사항 수정 실패:', error);
     }
@@ -229,37 +225,15 @@ export default function WorkspaceMain() {
   useEffect(() => {
     const fetchNotice = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
-          console.error('인증 토큰 없음');
-          return;
-        }
-
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/teams/${teamId}/notice`,
-          {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!res.ok) {
-          throw new Error(`공지사항 조회 실패 (status: ${res.status})`);
-        }
-
-        const result = await res.json();
-        setNoticeText(result.data.notice); // 화면 표시용
-        setOriginalNotice(result.data.notice); // 취소 시 복원용
+        const notice = await getTeamNotice(teamId);
+        setNoticeText(notice);
+        setOriginalNotice(notice);
       } catch (err) {
         console.error('공지사항 불러오기 실패:', err);
       }
     };
 
-    if (typeof teamId === 'string') {
-      fetchNotice();
-    }
+    fetchNotice();
   }, [teamId]);
 
   useEffect(() => {
