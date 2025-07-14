@@ -36,18 +36,6 @@ export default function MeetingRecordsPage() {
     enabled: !!id,
   });
 
-  // const allMeetingRecords: MeetingRecord[] = Array.from({ length: 25 }, (_, index) => ({
-  //   id: index + 1,
-  //   title: '제품 출시 회의',
-  //   date: '2025-05-20',
-  //   duration: '1시간 30분',
-  //   participants: 1,
-  // }));
-
-  // const totalPages = Math.ceil(allMeetingRecords.length / recordsPerPage);
-  // const startIndex = (currentPage - 1) * recordsPerPage;
-  // const currentRecords = allMeetingRecords.slice(startIndex, startIndex + recordsPerPage);
-
   const totalPages = Math.max(1, Math.ceil(meetings.length / recordsPerPage));
   const currentRecords = meetings.slice(
     (currentPage - 1) * recordsPerPage,
@@ -58,9 +46,6 @@ export default function MeetingRecordsPage() {
   const handlePrevious = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
   const handleNext = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
-  // const handlePageChange = (page: number) => setCurrentPage(page);
-  // const handlePrevious = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
-  // const handleNext = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
   return (
     <div className="h-[calc(100vh-4rem)] overflow-y-auto bg-white">
@@ -143,23 +128,6 @@ export default function MeetingRecordsPage() {
               </Button>
             );
           })}
-
-          {/* return (
-              <Button
-                key={pageNumber}
-                variant={isActive ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => handlePageChange(pageNumber)}
-                className={`w-10 h-10 p-0 text-sm ${
-                  isActive
-                    ? 'bg-[#FFD93D] hover:bg-yellow-500 text-black border-yellow-400'
-                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                {pageNumber}
-              </Button>
-            );
-          })} */}
 
           <Button
             variant="outline"

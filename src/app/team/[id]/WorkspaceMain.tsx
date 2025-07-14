@@ -20,7 +20,7 @@ import {
   updateTeamNotice,
   getTeamDetail
 } from '@/api/team';
-// import toast from 'react-hot-toast';
+
 import { getUpcomingMeetings, getPastMeetings } from '@/api/meeting';
 
 
@@ -68,19 +68,6 @@ export default function WorkspaceMain() {
     return `${date.getMonth() + 1}.${date.getDate()}(${days[date.getDay()]})`;
   };
 
-  // const [upcomingMeetings] = useState([
-  //   { date: '05.20(목)', title: '제품 출시 회의', attendees: '1명 참석' },
-  //   { date: '05.20(목)', title: '제품 출시 회의', attendees: '1명 참석' },
-  //   { date: '05.20(목)', title: '제품 출시 회의', attendees: '1명 참석' },
-  // ]);
-
-  // const [pastMeetings] = useState([
-  //   { date: '05.20(목)', title: '제품 출시 회의' },
-  //   { date: '05.20(목)', title: '제품 출시 회의' },
-  //   { date: '05.20(목)', title: '제품 출시 회의' },
-  //   { date: '05.20(목)', title: '제품 출시 회의' },
-  //   { date: '05.20(목)', title: '제품 출시 회의' },
-  // ]);
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -449,15 +436,6 @@ export default function WorkspaceMain() {
                   </div>
                 ))
               )}
-              {/* {upcomingMeetings.map((meeting, index) => (
-                <div key={index} className="flex justify-between items-center py-3 border-0">
-                  <div>
-                    <span className="text-sm text-gray-600 mr-2">{meeting.date}</span>
-                    <span className="text-gray-900 font-medium">{meeting.title}</span>
-                  </div>
-                  <span className="text-sm text-gray-500">{meeting.attendees}</span>
-                </div>
-              ))} */}
             </CardContent>
           </Card>
 
