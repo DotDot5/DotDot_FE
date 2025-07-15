@@ -124,7 +124,7 @@ export default function Signup() {
       localStorage.setItem('refreshToken', refreshToken);
 
       alert('회원가입이 완료되었습니다.');
-      router.push('/home');
+      router.push('/dashboard');
     } catch (err: any) {
       console.error('Signup error:', err);
       const errorCode = err?.response?.data?.code;
