@@ -3,9 +3,14 @@
 import { Button } from '@/components/internal/ui/button';
 import { CalendarIcon, Clock, Video } from 'lucide-react';
 import { useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 
 export default function MeetingInfoPage() {
   const [agendaChecked, setAgendaChecked] = useState([true, true]); // 안건 체크 상태
+
+  const router = useRouter();
+  const params = useParams();
+  const meetingId = params.id as string;
 
   const handleAgendaCheck = (index: number) => {
     const updated = [...agendaChecked];
@@ -136,7 +141,10 @@ export default function MeetingInfoPage() {
         >
           수정하기
         </Button>
-        <Button className="bg-[#FFD93D] hover:bg-yellow-400 text-white font-semibold px-6 py-2 text-sm">
+        <Button
+          className="bg-[#FFD93D] hover:bg-yellow-400 text-white font-semibold px-6 py-2 text-sm"
+          onClick={() => router.push(`/meeting/${meetingId}`)}
+        >
           회의 시작
         </Button>
       </div>

@@ -45,7 +45,7 @@ export default function TeamSidebar() {
     <div>
       {/* Top 'Team' title + + button */}
       <div className="flex items-center justify-between group cursor-pointer">
-        <div className="flex items-center gap-2 text-gray-800 font-semibold">👥 팀</div>
+        <div className="flex items-center gap-2 text-[#333333] font-semibold">👥 팀</div>
         <button
           onClick={handleAddClick}
           className="opacity-0 group-hover:opacity-100 text-[#FFD93D]"
@@ -60,13 +60,13 @@ export default function TeamSidebar() {
           <div key={team.id} className="group relative" onMouseLeave={() => setOpenMenuId(null)}>
             <div className="flex justify-between items-center">
               {/* This link should ideally go to a team-specific overview page */}
-              <Link href={`/team/${team.id}`} className="text-sm text-black font-medium">
+              <Link href={`/team/${team.id}`} className="text-md text-[#333333] font-medium">
                 {team.name}
               </Link>
 
               {/* Hamburger button: show on hover */}
               <button
-                className="text-xs text-gray-500 opacity-0 group-hover:opacity-100"
+                className="text-xs text-[#666666] opacity-0 group-hover:opacity-100"
                 onClick={() => setOpenMenuId((prev) => (prev === team.id ? null : team.id))}
               >
                 ⋮
@@ -86,7 +86,7 @@ export default function TeamSidebar() {
             )}
 
             {/* Sub-links */}
-            <div className="ml-4 text-xs text-gray-600">
+            <div className="ml-4 text-sm text-[#666666]">
               <Link href={`/team/${team.id}`} className="block hover:underline">
                 팀 페이지
               </Link>

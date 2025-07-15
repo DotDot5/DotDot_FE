@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { getMeetingDetail, updateMeetingDetail } from '@/api/meeting';
 import { Button } from '@/components/internal/ui/button';
 import { Card, CardContent } from '@/components/internal/ui/card';
 import { Clock, Users, Play, Pause, Square, Send, X } from 'lucide-react';
 import { Input } from '@/components/internal/ui/input';
-import { useParams } from 'next/navigation';
 
 // interface PageProps {
 //   params: { id: string }; // URL의 [id]를 받기 위한 타입
@@ -35,12 +35,23 @@ export default function MeetingDetailPage() {
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState('00:15:32');
 
-  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([
-    { id: 1, title: '백엔드 API 명세서', description: '안건에 대한 메모를 작성하세요' },
-    { id: 2, title: '백엔드 API 명세서', description: '안건에 대한 메모를 작성하세요' },
-  ]);
+  const [meetingTitle, setMeetingTitle] = useState('');
+  const [meetingDate, setMeetingDate] = useState(''); // 화면용
+  const [meetingDateISO, setMeetingDateISO] = useState(''); // API용
+  const [participantCount, setParticipantCount] = useState(0);
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
+  const [meetingNotes, setMeetingNotes] = useState('');
+  const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME'>('RECORD'); // 회의 방법
+  const [teamId, setTeamId] = useState<number>(0); // 팀 ID 상태 추가
+  const [newMessage, setNewMessage] = useState('');
+  const [participants, setParticipants] = useState<any[]>([]);
 
-  const [meetingNotes, setMeetingNotes] = useState('회의에 대한 질문사항을 자유롭게 메모하세요');
+  // const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([
+  //   { id: 1, title: '백엔드 API 명세서', description: '안건에 대한 메모를 작성하세요' },
+  //   { id: 2, title: '백엔드 API 명세서', description: '안건에 대한 메모를 작성하세요' },
+  // ]);
+
+  // const [meetingNotes, setMeetingNotes] = useState('회의에 대한 질문사항을 자유롭게 메모하세요');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
     { id: 2, type: 'user', content: '궁금한신 게 있으시다면 말씀해주세요', timestamp: new Date() },
@@ -53,23 +64,87 @@ export default function MeetingDetailPage() {
     { id: 4, type: 'user', content: '그건...', timestamp: new Date() },
   ]);
 
-  const [newMessage, setNewMessage] = useState('');
+  // 회의 정보 조회
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await getMeetingDetail(meetingId);
+        setMeetingTitle(data.title);
+        setMeetingDate(formatKoreanDate(data.meetingAt)); // 포맷 함수는 아래 정의
+        setMeetingDateISO(data.meetingAt); // ISO 포맷 그대로 저장
+        setParticipantCount(data.participants.length);
+        setMeetingMethod(data.meetingMethod);
+        setParticipants(data.participants);
+        setAgendaItems(
+          data.agendas.map((a, i) => ({
+            id: i + 1,
+            title: a.agenda,
+            description: a.body,
+          }))
+        );
+        setMeetingNotes(data.note);
+        setTeamId(data.teamId); // teamId 상태 설정
+      } catch (err) {
+        console.error('회의 정보 불러오기 실패:', err);
+      }
+    };
+    fetchData();
+  }, [meetingId]);
 
+  const formatKoreanDate = (isoString: string): string => {
+    const date = new Date(isoString);
+    const day = date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+    });
+    const time = date.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return `${day} ${time}`;
+  };
+
+  // 안건 추가
   const handleAddAgenda = () => {
     const newAgenda: AgendaItem = {
       id: agendaItems.length + 1,
       title: '새 안건',
-      description: '안건에 대한 메모를 작성하세요',
+      description: '',
     };
     setAgendaItems([...agendaItems, newAgenda]);
   };
 
+  // 안건 수정
   const handleUpdateAgenda = (id: number, field: 'title' | 'description', value: string) => {
     setAgendaItems(
       agendaItems.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
   };
 
+  // 회의 정보 업데이트
+  const handleUpdateMeeting = async () => {
+    try {
+      const updateData = {
+        teamId, // teamId 추가
+        title: meetingTitle,
+        meetingAt: meetingDateISO,
+        meetingMethod,
+        note: meetingNotes,
+        participants: participants, // 참가자 목록 처리해야 함
+        agendas: agendaItems.map((item) => ({
+          agenda: item.title,
+          body: item.description,
+        })),
+      };
+      await updateMeetingDetail(meetingId, updateData);
+      router.push(`/meetings/${meetingId}`); // 수정 후 페이지 리디렉션
+    } catch (error) {
+      console.error('회의 정보 수정 실패:', error);
+    }
+  };
   const handleSendMessage = () => {
     if (newMessage.trim()) {
       const message: ChatMessage = {
@@ -91,9 +166,13 @@ export default function MeetingDetailPage() {
     setIsRecording(false);
   };
 
-  const handleEndMeeting = () => {
-    console.log('회의 종료');
-    router.back(); // ← onBack() 대신
+  const handleEndMeeting = async () => {
+    try {
+      await handleUpdateMeeting(); // 회의 정보 저장
+      router.push(`/meeting/${meetingId}/result`);
+    } catch (err) {
+      console.error('회의 종료 중 오류:', err);
+    }
   };
 
   const handleDeleteAgenda = (id: number) => {
@@ -110,21 +189,21 @@ export default function MeetingDetailPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 mb-2">회의 제목 회의 제목</h1>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <h1 className="text-2xl font-bold text-[#333333] mb-2">{meetingTitle}</h1>
+                  <div className="flex items-center gap-4 text-sm text-[#666666]">
                     <div className="flex items-center gap-1">
                       <Clock className="w-4 h-4" />
-                      <span>2025.07.01(화) 오후 09:10</span>
+                      <span>{meetingDate}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Users className="w-4 h-4" />
-                      <span>4명 참석</span>
+                      <span>{participantCount}명 참석</span>
                     </div>
                   </div>
                 </div>
                 <Button
                   onClick={handleEndMeeting}
-                  className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-2"
+                  className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2"
                 >
                   회의 종료
                 </Button>
@@ -144,7 +223,7 @@ export default function MeetingDetailPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">📝</span>
-                  <h2 className="text-xl font-bold text-gray-900">회의 안건</h2>
+                  <h2 className="text-xl font-bold text-[#333333]">회의 안건</h2>
                 </div>
                 <Button
                   onClick={handleAddAgenda}
@@ -160,12 +239,12 @@ export default function MeetingDetailPage() {
                 {agendaItems.map((item) => (
                   <div key={item.id} className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 border-2 border-gray-400 rounded-full"></div>
+                      <div className="w-3 h-3 border-2 border-[#666666] rounded-full"></div>
                       <input
                         type="text"
                         value={item.title}
                         onChange={(e) => handleUpdateAgenda(item.id, 'title', e.target.value)}
-                        className="font-medium text-gray-900 bg-transparent border-none outline-none flex-1"
+                        className="font-medium text-[#333333] bg-transparent border-none outline-none flex-1"
                       />
                       <Button
                         onClick={() => handleDeleteAgenda(item.id)}
@@ -179,7 +258,7 @@ export default function MeetingDetailPage() {
                     <textarea
                       value={item.description}
                       onChange={(e) => handleUpdateAgenda(item.id, 'description', e.target.value)}
-                      className="w-full p-3 border border-gray-200 rounded-lg resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-600"
+                      className="w-full p-3 border border-gray-200 rounded-lg resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm text-[#333333]"
                       style={{ minHeight: '80px', height: 'auto' }}
                       placeholder="안건에 대한 메모를 작성하세요"
                       onInput={(e) => {
@@ -199,14 +278,14 @@ export default function MeetingDetailPage() {
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-lg">📝</span>
-                <h2 className="text-xl font-bold text-gray-900">회의 메모</h2>
+                <h2 className="text-xl font-bold text-[#333333]">회의 메모</h2>
               </div>
               <textarea
                 value={meetingNotes}
                 onChange={(e) => setMeetingNotes(e.target.value)}
-                className="w-full p-4 border border-gray-200 rounded-lg resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-600"
+                className="w-full p-4 border border-gray-200 rounded-lg resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm text-[#333333]"
                 style={{ minHeight: '200px', height: 'auto' }}
-                placeholder="회의에 대한 질문사항을 자유롭게 메모하세요"
+                placeholder="회의에 대한 내용을 자유롭게 메모하세요"
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement;
                   target.style.height = 'auto';
@@ -220,7 +299,7 @@ export default function MeetingDetailPage() {
         {/* Fixed Recording Controls - 하단 오버레이 */}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pointer-events-none">
           <div className="pointer-events-auto">
-            <Card className="bg-gray-600 text-white shadow-xl">
+            <Card className="bg-gray-400 text-white shadow-xl">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -235,7 +314,7 @@ export default function MeetingDetailPage() {
                       onClick={handlePauseResume}
                       size="sm"
                       variant="ghost"
-                      className="text-white hover:bg-gray-700 p-2"
+                      className="text-white hover:bg-[#333333] p-2"
                     >
                       {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
                     </Button>
@@ -243,7 +322,7 @@ export default function MeetingDetailPage() {
                       onClick={handleStopRecording}
                       size="sm"
                       variant="ghost"
-                      className="text-white hover:bg-gray-700 p-2"
+                      className="text-white hover:bg-[#333333] p-2"
                     >
                       <Square className="w-5 h-5" />
                     </Button>
@@ -260,10 +339,10 @@ export default function MeetingDetailPage() {
         {/* Chat Header - 고정 */}
         <div className="flex-shrink-0 p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center">
               <span className="text-white text-sm">🤖</span>
             </div>
-            <h3 className="font-semibold text-gray-900">AI 어시스턴트</h3>
+            <h3 className="font-semibold text-[#333333]">AI 어시스턴트</h3>
           </div>
         </div>
 
@@ -274,12 +353,12 @@ export default function MeetingDetailPage() {
               key={message.id}
               className={`p-3 rounded-lg max-w-[80%] ${
                 message.type === 'ai'
-                  ? 'bg-gray-100 text-gray-900'
+                  ? 'bg-gray-100 text-[#333333]'
                   : message.content === 'AI 어시스턴트'
-                    ? 'bg-gray-100 text-gray-900'
+                    ? 'bg-gray-100 text-[#333333]'
                     : message.content === '궁금한신 게 있으시다면 말씀해주세요'
-                      ? 'bg-gray-200 text-gray-700'
-                      : 'bg-blue-500 text-white ml-auto'
+                      ? 'bg-gray-200 text-[#333333]'
+                      : 'bg-[#3B82F6] text-white ml-auto'
               }`}
             >
               <p className="text-sm">{message.content}</p>
@@ -304,7 +383,7 @@ export default function MeetingDetailPage() {
             <Button
               onClick={handleSendMessage}
               size="sm"
-              className="bg-blue-500 hover:bg-blue-600 text-white p-2"
+              className="bg-[#3B82F6] hover:bg-[#3B82F6] text-white p-2"
             >
               <Send className="w-4 h-4" />
             </Button>

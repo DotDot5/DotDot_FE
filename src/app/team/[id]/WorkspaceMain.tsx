@@ -20,7 +20,8 @@ import {
   updateTeamNotice,
   getTeamDetail
 } from '@/api/team';
-// import toast from 'react-hot-toast';
+
+import { getUpcomingMeetings, getPastMeetings } from '@/api/meeting';
 
 
 type Member = {
@@ -50,20 +51,23 @@ export default function WorkspaceMain() {
     enabled: !!id, // id 있을 때만 요청
     staleTime: 0,
   });
+  const { data: upcomingMeetings = [] } = useQuery({
+    queryKey: ['upcomingMeetings', id],
+    queryFn: () => getUpcomingMeetings(id),
+    enabled: !!id,
+  });
 
-  const [upcomingMeetings] = useState([
-    { date: '05.20(목)', title: '제품 출시 회의', attendees: '1명 참석' },
-    { date: '05.20(목)', title: '제품 출시 회의', attendees: '1명 참석' },
-    { date: '05.20(목)', title: '제품 출시 회의', attendees: '1명 참석' },
-  ]);
+  const { data: pastMeetings = [] } = useQuery({
+    queryKey: ['pastMeetings', id],
+    queryFn: () => getPastMeetings(id),
+    enabled: !!id,
+  });
+  const formatDateWithDay = (isoDate: string) => {
+    const date = new Date(isoDate);
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    return `${date.getMonth() + 1}.${date.getDate()}(${days[date.getDay()]})`;
+  };
 
-  const [pastMeetings] = useState([
-    { date: '05.20(목)', title: '제품 출시 회의' },
-    { date: '05.20(목)', title: '제품 출시 회의' },
-    { date: '05.20(목)', title: '제품 출시 회의' },
-    { date: '05.20(목)', title: '제품 출시 회의' },
-    { date: '05.20(목)', title: '제품 출시 회의' },
-  ]);
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -266,7 +270,7 @@ export default function WorkspaceMain() {
     <div className="h-[calc(100vh-4rem)] overflow-y-auto bg-white">
       {/* Yellow Header Section */}
       <div className="bg-[#FFD93D] px-8 py-12">
-        <h1 className="text-white text-3xl font-bold">{teamDetail?.teamName} 팀의 워크스페이스</h1>
+        <h1 className="text-white text-3xl font-bold">{teamDetail?.teamName}팀의 워크스페이스</h1>
       </div>
       {/* bg-[#FFD93D] */}
       {/* Main Content Cards */}
@@ -307,11 +311,11 @@ export default function WorkspaceMain() {
               </div>
             ) : (
               <p
-                className="text-gray-700 text-sm leading-relaxed cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
+                className="text-[#333333] text-sm leading-relaxed cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
                 onClick={handleNoticeEdit}
               >
                 {noticeText.trim() === '' ? (
-                  <span className="text-gray-400">공지사항을 입력하세요...</span>
+                  <span className="text-[#666666]">공지사항을 입력하세요...</span>
                 ) : (
                   noticeText
                 )}
@@ -323,7 +327,7 @@ export default function WorkspaceMain() {
           <div className="bg-gray-50 rounded-2xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-gray-900">팀 멤버</span>
+                <span className="text-lg font-bold text-[#333333]">팀 멤버</span>
                 <Badge
                   variant="secondary"
                   className="bg-[#FFD93D] text-black rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs"
@@ -347,7 +351,7 @@ export default function WorkspaceMain() {
                   className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-md p-1"
                   onClick={handleScrollLeft}
                 >
-                  <ChevronLeft className="w-5 h-5 text-gray-400" />
+                  <ChevronLeft className="w-5 h-5 text-[#666666]" />
                 </button>
               )}
               {/* 멤버 리스트 */}
@@ -387,7 +391,7 @@ export default function WorkspaceMain() {
                   className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-md p-1"
                   onClick={handleScrollRight}
                 >
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="w-5 h-5 text-[#666666]" />
                 </button>
               )}
             </div>
@@ -399,7 +403,7 @@ export default function WorkspaceMain() {
           <Card className="shadow-sm border-0 bg-gray-50 rounded-2xl">
             <CardHeader className="pb-4">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-xl font-bold text-gray-900">
+                <CardTitle className="text-xl font-bold text-[#333333]">
                   다가오는 회의 목록
                 </CardTitle>
                 <Button
@@ -411,15 +415,27 @@ export default function WorkspaceMain() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {upcomingMeetings.map((meeting, index) => (
-                <div key={index} className="flex justify-between items-center py-3 border-0">
-                  <div>
-                    <span className="text-sm text-gray-600 mr-2">{meeting.date}</span>
-                    <span className="text-gray-900 font-medium">{meeting.title}</span>
+              {upcomingMeetings.length === 0 ? (
+                <p className="text-sm text-[#666666]">예정된 회의가 없습니다.</p>
+              ) : (
+                upcomingMeetings.map((meeting) => (
+                  <div
+                    key={meeting.meetingId}
+                    onClick={() => router.push(`/meeting/${meeting.meetingId}/view`)}
+                    className="flex justify-between items-center py-3 border-0"
+                  >
+                    <div>
+                      <span className="text-sm text-[#666666] mr-2">
+                        {formatDateWithDay(meeting.meetingAt)}
+                      </span>
+                      <span className="text-[#333333] font-medium">{meeting.title}</span>
+                    </div>
+                    <span className="text-sm text-[#666666] border border-gray-300 rounded-full px-3 py-1">
+                      {meeting.participantCount}명 참석
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-500">{meeting.attendees}</span>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
 
@@ -427,7 +443,7 @@ export default function WorkspaceMain() {
           <Card className="shadow-sm border-0 bg-gray-50 rounded-2xl">
             <CardHeader className="pb-4">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-xl font-bold text-gray-900">지난 회의록</CardTitle>
+                <CardTitle className="text-xl font-bold text-[#333333]">지난 회의록</CardTitle>
                 <Button
                   className="bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 text-sm"
                   onClick={handleViewAllMeetings}
@@ -437,12 +453,22 @@ export default function WorkspaceMain() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {pastMeetings.map((meeting, index) => (
-                <div key={index} className="p-3 bg-white rounded-xl border border-gray-200">
-                  <span className="text-sm text-gray-600 mr-2">{meeting.date}</span>
-                  <span className="text-gray-900 font-medium">{meeting.title}</span>
-                </div>
-              ))}
+              {pastMeetings.length === 0 ? (
+                <p className="text-sm text-gray-500">지난 회의록이 없습니다.</p>
+              ) : (
+                pastMeetings.map((meeting) => (
+                  <div
+                    key={meeting.meetingId}
+                    onClick={() => router.push(`/meeting/${meeting.meetingId}/result`)}
+                    className="p-3 bg-white rounded-xl border border-gray-200"
+                  >
+                    <span className="text-sm text-[#666666] mr-2">
+                      {formatDateWithDay(meeting.meetingAt)}
+                    </span>
+                    <span className="text-[#333333] font-medium">{meeting.title}</span>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
@@ -472,7 +498,7 @@ export default function WorkspaceMain() {
               <Button
                 variant="outline"
                 onClick={() => setIsInviteModalOpen(false)}
-                className="text-gray-700 border-gray-300 hover:bg-gray-100"
+                className="text-[#333333] border-gray-300 hover:bg-gray-100"
               >
                 취소
               </Button>
@@ -521,7 +547,7 @@ export default function WorkspaceMain() {
           <div className="space-y-4">
             <div className="space-y-2 w-full ">
               <div className="flex items-center justify-between gap-2 w-full">
-                <label className="text-sm font-medium text-gray-700">팀 내 역할</label>
+                <label className="text-sm font-medium text-[#333333]">팀 내 역할</label>
               </div>
               <Input
                 placeholder="역할을 입력하세요"
@@ -534,7 +560,7 @@ export default function WorkspaceMain() {
               <Button
                 variant="outline"
                 onClick={() => setIsMemberModalOpen(false)}
-                className="text-gray-700 border-gray-300 hover:bg-gray-100"
+                className="text-[#333333] border-gray-300 hover:bg-gray-100"
               >
                 취소
               </Button>
