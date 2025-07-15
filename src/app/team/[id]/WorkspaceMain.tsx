@@ -9,8 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/i
 import { Input } from '@/components/internal/ui/input';
 import { useRouter, useParams } from 'next/navigation';
 import axios, { AxiosError } from 'axios';
-import { toast } from 'sonner'; 
-import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   getTeamMembers,
@@ -18,11 +18,10 @@ import {
   updateMemberRole,
   getTeamNotice,
   updateTeamNotice,
-  getTeamDetail
+  getTeamDetail,
 } from '@/api/team';
 
 import { getUpcomingMeetings, getPastMeetings } from '@/api/meeting';
-
 
 type Member = {
   userId: number;
@@ -31,10 +30,19 @@ type Member = {
   role: string;
 };
 
-export default function WorkspaceMain() {
+export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings?: () => void }) {
   const router = useRouter();
   const params = useParams();
   const teamId = params.id as string;
+  const queryClient = useQueryClient();
+
+  // 회의 목록 갱신 함수
+  const refreshMeetings = () => {
+    queryClient.invalidateQueries({ queryKey: ['upcomingMeetings', teamId] });
+    queryClient.invalidateQueries({ queryKey: ['pastMeetings', teamId] });
+    onRefreshMeetings?.(); // 부모 컴포넌트의 갱신 함수도 호출
+  };
+
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
@@ -67,7 +75,6 @@ export default function WorkspaceMain() {
     const days = ['일', '월', '화', '수', '목', '금', '토'];
     return `${date.getMonth() + 1}.${date.getDate()}(${days[date.getDay()]})`;
   };
-
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -250,7 +257,7 @@ export default function WorkspaceMain() {
   useEffect(() => {
     fetchTeamMembers();
   }, [teamId]);
-  
+
   useEffect(() => {
     const fetchTeamDetail = async () => {
       if (!id) return;
@@ -263,7 +270,6 @@ export default function WorkspaceMain() {
     };
     fetchTeamDetail();
   }, [id]);
-
 
   return (
     // <div className="min-h-screen bg-white">
@@ -407,7 +413,7 @@ export default function WorkspaceMain() {
                   다가오는 회의 목록
                 </CardTitle>
                 <Button
-                  onClick={() => router.push('/team/1?modal=create')}
+                  onClick={() => router.push(`/team/${teamId}?modal=create`)}
                   className="flex items-center bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 text-sm"
                 >
                   회의 만들기 <Plus className="w-4 h-4" />

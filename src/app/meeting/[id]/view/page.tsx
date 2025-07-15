@@ -2,94 +2,158 @@
 
 import { Button } from '@/components/internal/ui/button';
 import { CalendarIcon, Clock, Video } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { getMeetingDetail, MeetingDetail } from '@/api/meeting';
+import MeetingCreateModal from '@/components/meeting/MeetingCreateModal';
 
 export default function MeetingInfoPage() {
-  const [agendaChecked, setAgendaChecked] = useState([true, true]); // 안건 체크 상태
-
+  const [meetingDetail, setMeetingDetail] = useState<MeetingDetail | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const params = useParams();
   const meetingId = params.id as string;
 
-  const handleAgendaCheck = (index: number) => {
-    const updated = [...agendaChecked];
-    updated[index] = !updated[index];
-    setAgendaChecked(updated);
+  const fetchMeetingDetail = async () => {
+    try {
+      const data = await getMeetingDetail(Number(meetingId));
+      setMeetingDetail(data);
+    } catch (err) {
+      console.error('회의 정보 조회 실패:', err);
+    }
   };
+
+  useEffect(() => {
+    fetchMeetingDetail();
+  }, [meetingId]);
+
+  // 역할별 색깔 배정 함수
+  const getRoleColor = (role: string) => {
+    const colors = [
+      'bg-blue-100 text-blue-600',
+      'bg-red-100 text-red-600',
+      'bg-green-100 text-green-600',
+      'bg-purple-100 text-purple-600',
+      'bg-yellow-100 text-yellow-600',
+      'bg-pink-100 text-pink-600',
+      'bg-indigo-100 text-indigo-600',
+      'bg-orange-100 text-orange-600',
+    ];
+
+    if (!meetingDetail) return 'bg-gray-200 text-gray-500';
+
+    const uniqueRoles = [...new Set(meetingDetail.participants.map((p) => p.part))];
+    const roleIndex = uniqueRoles.indexOf(role);
+
+    return roleIndex !== -1 && roleIndex < colors.length
+      ? colors[roleIndex]
+      : 'bg-gray-200 text-gray-500';
+  };
+
+  if (!meetingDetail) return <div className="p-8">회의 정보를 불러오는 중입니다...</div>;
+
   return (
     <div className="px-8 py-6">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-semibold text-[#000000]">제품 출시 회의</h1>
+        <h1 className="text-3xl font-semibold text-[#000000]">{meetingDetail.title}</h1>
+
         <Button
           variant="outline"
           className="px-6 py-2 text-sm font-medium text-[#000000] border border-gray-300"
+          onClick={() => setModalOpen(true)}
         >
           수정하기
         </Button>
+
+        {modalOpen && meetingDetail && (
+          <MeetingCreateModal
+            open={modalOpen}
+            onClose={() => setModalOpen(false)}
+            mode="edit"
+            teamId={meetingDetail.teamId.toString()}
+            onSuccess={() => {
+              fetchMeetingDetail(); // 수정 후 회의 정보 다시 불러오기
+            }}
+            existingMeeting={{
+              teamId: meetingDetail.teamId.toString(),
+              title: meetingDetail.title,
+              date: new Date(meetingDetail.meetingAt),
+              time: new Date(meetingDetail.meetingAt).toLocaleTimeString('ko-KR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              }),
+              recordType: meetingDetail.meetingMethod as 'RECORD' | 'REALTIME',
+              members: meetingDetail.participants.map((p) => ({
+                userId: p.userId,
+                name: String(p.userId),
+                role: p.part,
+              })),
+              agendaItems: meetingDetail.agendas.map((a) => ({
+                type: a.agenda,
+                content: a.body,
+              })),
+            }}
+          />
+        )}
       </div>
 
       {/* 회의 정보 */}
       <section className="mb-6 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-[#000000] mb-4">회의 정보</h2>
         <div className="grid grid-cols-3 gap-4 text-sm text-[#000000]">
-          {/* 날짜 */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <CalendarIcon className="w-4 h-4 text-[#666666]" />
               <span className="text-[#999999]">날짜</span>
             </div>
-            <span>2025.07.01</span>
+            <span>{meetingDetail.meetingAt.slice(0, 10)}</span>
           </div>
 
-          {/* 시간 */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-[#666666]" />
               <span className="text-[#999999]">시간</span>
             </div>
-            <span>오후 09:10</span>
+            <span>
+              {new Date(meetingDetail.meetingAt).toLocaleTimeString('ko-KR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
           </div>
 
-          {/* 기록 방식 */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <Video className="w-4 h-4 text-[#666666]" />
               <span className="text-[#999999]">기록 방식</span>
             </div>
-            <span className="font-medium">실시간 녹음</span>
+            <span className="font-medium">
+              {meetingDetail.meetingMethod === 'RECORD' ? '파일 업로드' : '실시간 녹음'}
+            </span>
           </div>
         </div>
       </section>
 
       {/* 참석자 */}
       <section className="mb-6 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-[#000000] mb-4">참석자 (4명)</h2>
+        <h2 className="text-xl font-semibold text-[#000000] mb-4">
+          참석자 ({meetingDetail.participants.length}명)
+        </h2>
         <div className="grid grid-cols-2 gap-3">
-          {[
-            { name: '김다은', role: '프론트' },
-            { name: '김세현', role: '프론트' },
-            { name: '고예린', role: '참석자' },
-            { name: '정태윤', role: '참석자' },
-          ].map((member, i) => (
+          {meetingDetail.participants.map((member, i) => (
             <div
               key={i}
               className="flex items-center justify-between px-4 py-2 bg-gray-100 rounded-full min-w-0"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-5 h-5 rounded-full bg-gray-300 flex-shrink-0" />
-                <span className="text-sm text-[#000000] truncate">{member.name}</span>
+                <span className="text-sm text-[#000000] truncate">{member.userId}</span>
               </div>
               <span
-                className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                  member.role === '프론트'
-                    ? 'bg-blue-100 text-blue-600'
-                    : member.role === '백엔드'
-                      ? 'bg-red-100 text-red-600'
-                      : 'bg-gray-200 text-gray-500'
-                }`}
+                className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${getRoleColor(member.part)}`}
               >
-                {member.role}
+                {member.part}
               </span>
             </div>
           ))}
@@ -101,31 +165,15 @@ export default function MeetingInfoPage() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-[#000000]">회의 안건</h2>
         </div>
-        {[
-          {
-            title: '백엔드 API 명세서',
-            content:
-              '사용자 인증, 회의 생성/조회, 파일 업로드 API 등 주요 엔드포인트 설계 및 데이터 구조 검토가 필요합니다.',
-          },
-          {
-            title: '프론트엔드 UI/UX 개선',
-            content:
-              '대시보드 레이아웃 최적화, 모바일 반응형 디자인, 사용자 피드백 반영을 통한 인터페이스 개선 방안을 논의합니다.',
-          },
-        ].map((agenda, i) => (
+        {meetingDetail.agendas.map((agenda, i) => (
           <div key={i} className="mb-3 last:mb-0">
             <div className="flex items-center gap-2 mb-2">
-              <input
-                type="checkbox"
-                checked={agendaChecked[i]}
-                onChange={() => handleAgendaCheck(i)}
-                className="cursor-pointer accent-black"
-              />
-              <span className="text-sm text-[#000000]">{agenda.title}</span>
+              <div className="w-3 h-3 border-2 border-[#666666] rounded-full"></div>
+              <span className="text-sm text-[#000000]">{agenda.agenda}</span>
             </div>
             <textarea
               disabled
-              value={agenda.content}
+              value={agenda.body}
               className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-[#666666] bg-[#F9F9F9] resize-none"
               rows={2}
             />
@@ -138,6 +186,7 @@ export default function MeetingInfoPage() {
         <Button
           variant="outline"
           className="px-6 py-2 text-sm font-medium text-[#000000] border border-gray-300"
+          onClick={() => setModalOpen(true)}
         >
           수정하기
         </Button>

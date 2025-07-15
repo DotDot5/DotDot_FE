@@ -54,7 +54,23 @@ export interface MeetingListResponse {
   meetingId: number;
   title: string;
   meetingAt: string; // ISO 8601 string
-  teamId : number;
+  teamId: number;
+}
+
+// 회의 생성 요청 DTO
+export interface CreateMeetingRequest {
+  teamId: number;
+  title: string;
+  meetingAt: string; // ISO 8601 datetime
+  meetingMethod: MeetingMethod;
+  note: string;
+  participants: MeetingParticipant[];
+  agendas: MeetingAgenda[];
+}
+
+// 회의 생성 응답 DTO
+export interface CreateMeetingResponse {
+  meetingId: number;
 }
 
 // 회의 목록 조회
@@ -102,9 +118,19 @@ export const getMyMeetingList = async (
     params.status = status;
   }
 
-  const res = await axiosInstance.get<ApiResponse<MeetingListResponse[]>>(
-    '/api/v1/meetings/my',
-    { params }
+  const res = await axiosInstance.get<ApiResponse<MeetingListResponse[]>>('/api/v1/meetings/my', {
+    params,
+  });
+  return res.data.data;
+};
+
+// 회의 생성 API 함수
+export const createMeeting = async (
+  payload: CreateMeetingRequest
+): Promise<CreateMeetingResponse> => {
+  const res = await axiosInstance.post<ApiResponse<CreateMeetingResponse>>(
+    '/api/v1/meetings',
+    payload
   );
   return res.data.data;
 };
