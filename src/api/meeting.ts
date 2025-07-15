@@ -50,6 +50,13 @@ export interface UpdateMeetingRequest {
   agendas: MeetingAgenda[];
 }
 
+export interface MeetingListResponse {
+  meetingId: number;
+  title: string;
+  meetingAt: string; // ISO 8601 string
+  teamId : number;
+}
+
 // 회의 목록 조회
 export const getMeetings = async (
   teamId: string,
@@ -83,4 +90,21 @@ export const updateMeetingDetail = async (
   payload: UpdateMeetingRequest
 ): Promise<void> => {
   await axiosInstance.put<ApiResponse<number>>(`/api/v1/meetings/${meetingId}`, payload);
+};
+
+// 내가 속한 회의 목록 조회
+export const getMyMeetingList = async (
+  status?: string,
+  sort: 'asc' | 'desc' = 'desc'
+): Promise<MeetingListResponse[]> => {
+  const params: Record<string, string> = { sort };
+  if (status) {
+    params.status = status;
+  }
+
+  const res = await axiosInstance.get<ApiResponse<MeetingListResponse[]>>(
+    '/api/v1/meetings/my',
+    { params }
+  );
+  return res.data.data;
 };
