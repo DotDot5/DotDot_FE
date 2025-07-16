@@ -70,7 +70,7 @@ export default function DashboardPage() {
                   className="font-semibold cursor-pointer p-2 rounded"
                   onClick={() => router.push(`/meeting/${meeting.meetingId}/view`)}
                 >
-                  {formatDate(meeting.meetingAt)} {meeting.title}
+                  [{meeting.teamName}] {formatDate(meeting.meetingAt)} {meeting.title}
                 </li>
               ))}
             </ul>
@@ -96,7 +96,7 @@ export default function DashboardPage() {
                   className="font-semibold cursor-pointer p-2 rounded"
                   onClick={() => router.push(`/meeting/${meeting.meetingId}/view`)}
                 >
-                  {formatDate(meeting.meetingAt)} {meeting.title}
+                  [{meeting.teamName}] {formatDate(meeting.meetingAt)} {meeting.title}
                 </li>
               ))}
             </ul>

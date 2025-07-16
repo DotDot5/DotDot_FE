@@ -354,6 +354,7 @@ export default function MeetingCreateModal({
           userId: member.userId || 0, // userId가 0이면 기본값 사용
           part: member.role || '참석자',
           speakerIndex: 0,
+          userName: member.name || '',
         })),
         agendas: validAgendaItems.map((item) => ({
           agenda: item.type,
@@ -412,6 +413,7 @@ export default function MeetingCreateModal({
           userId: member.userId || 0, // userId가 0이면 기본값 사용
           part: member.role || '참석자',
           speakerIndex: 0,
+          memberName: member.name || '',
         })),
         agendas: validAgendaItems.map((item) => ({
           agenda: item.type,
@@ -432,15 +434,22 @@ export default function MeetingCreateModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[600px] rounded-2xl px-10 py-8 bg-white relative">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-[#000000] mb-6">
+      <DialogContent className="w-[550px] max-h-[80vh] rounded-2xl px-8 py-6 bg-white relative overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="text-xl font-semibold text-[#000000] mb-4">
             {mode === 'create' ? '새 회의 만들기' : '회의 수정하기'}
           </DialogTitle>
         </DialogHeader>
 
+        <div 
+          className="flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#d1d5db transparent'
+          }}
+        >
         {/* 회의 제목 */}
-        <div className="mb-5">
+        <div className="mb-4">
           <label className="text-sm font-semibold text-[#000000] block mb-2">회의 제목</label>
           <Input
             className="w-full border-gray-300 pr-10 text-[#000000]"
@@ -451,7 +460,7 @@ export default function MeetingCreateModal({
         </div>
 
         {/* 날짜 & 시간 */}
-        <div className="flex gap-6 mb-5">
+        <div className="flex gap-4 mb-4">
           <div className="flex-1">
             <label className="text-sm font-semibold text-[#000000] block mb-2">회의 날짜</label>
             <Popover>
@@ -492,7 +501,7 @@ export default function MeetingCreateModal({
         </div>
 
         {/* 회의 기록 방식 */}
-        <div className="mb-6">
+        <div className="mb-4">
           <label className="text-sm font-semibold text-[#000000] block mb-2">회의 기록 방식</label>
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2 text-sm font-medium text-[#000000]">
@@ -515,7 +524,7 @@ export default function MeetingCreateModal({
         </div>
 
         {/* 참석자 및 역할 */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="flex justify-between items-center">
             <label className="text-sm font-semibold text-[#000000]">참석자 및 역할</label>
             <div className="flex gap-2">
@@ -787,7 +796,7 @@ export default function MeetingCreateModal({
             rows={3}
           />
         </div> */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="flex justify-between items-center mb-2">
             <label className="text-sm font-semibold text-[#000000]">회의 안건</label>
             <button
@@ -840,8 +849,10 @@ export default function MeetingCreateModal({
           </div>
         </div>
 
+        </div>
+
         {/* 버튼 */}
-        <div className="flex justify-between mt-8">
+        <div className="flex justify-between mt-6 pt-4 border-t border-gray-100 flex-shrink-0">
           <Button
             variant="outline"
             onClick={onClose}

@@ -86,7 +86,7 @@ export default function MeetingInfoPage() {
               recordType: meetingDetail.meetingMethod as 'RECORD' | 'REALTIME',
               members: meetingDetail.participants.map((p) => ({
                 userId: p.userId,
-                name: String(p.userId),
+                name: p.userName,
                 role: p.part,
               })),
               agendaItems: meetingDetail.agendas.map((a) => ({
@@ -148,7 +148,7 @@ export default function MeetingInfoPage() {
             >
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-5 h-5 rounded-full bg-gray-300 flex-shrink-0" />
-                <span className="text-sm text-[#000000] truncate">{member.userId}</span>
+                <span className="text-sm text-[#000000] truncate">{member.userName}</span>
               </div>
               <span
                 className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${getRoleColor(member.part)}`}

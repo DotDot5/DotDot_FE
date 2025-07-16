@@ -24,6 +24,10 @@ export interface MeetingParticipant {
   speakerIndex: number;
 }
 
+export interface MeetingParticipantWithName extends MeetingParticipant {
+  userName: string; // 추가된 필드: 사용자 이름
+}
+
 export interface MeetingAgenda {
   agenda: string;
   body: string;
@@ -36,7 +40,7 @@ export interface MeetingDetail {
   meetingAt: string; // ISO 8601 string
   meetingMethod: MeetingMethod;
   note: string;
-  participants: MeetingParticipant[];
+  participants: MeetingParticipantWithName[];
   agendas: MeetingAgenda[];
 }
 
@@ -55,6 +59,7 @@ export interface MeetingListResponse {
   title: string;
   meetingAt: string; // ISO 8601 string
   teamId: number;
+  teamName: string;
 }
 
 // 회의 생성 요청 DTO
