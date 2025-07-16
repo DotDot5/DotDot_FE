@@ -24,6 +24,10 @@ export interface MeetingParticipant {
   speakerIndex: number;
 }
 
+export interface MeetingParticipantWithName extends MeetingParticipant {
+  userName: string; // 추가된 필드: 사용자 이름
+}
+
 export interface MeetingAgenda {
   agenda: string;
   body: string;
@@ -36,7 +40,7 @@ export interface MeetingDetail {
   meetingAt: string; // ISO 8601 string
   meetingMethod: MeetingMethod;
   note: string;
-  participants: MeetingParticipant[];
+  participants: MeetingParticipantWithName[];
   agendas: MeetingAgenda[];
 }
 
@@ -48,6 +52,30 @@ export interface UpdateMeetingRequest {
   note: string;
   participants: MeetingParticipant[];
   agendas: MeetingAgenda[];
+}
+
+export interface MeetingListResponse {
+  meetingId: number;
+  title: string;
+  meetingAt: string; // ISO 8601 string
+  teamId: number;
+  teamName: string;
+}
+
+// 회의 생성 요청 DTO
+export interface CreateMeetingRequest {
+  teamId: number;
+  title: string;
+  meetingAt: string; // ISO 8601 datetime
+  meetingMethod: MeetingMethod;
+  note: string;
+  participants: MeetingParticipant[];
+  agendas: MeetingAgenda[];
+}
+
+// 회의 생성 응답 DTO
+export interface CreateMeetingResponse {
+  meetingId: number;
 }
 
 // 회의 목록 조회
@@ -83,4 +111,31 @@ export const updateMeetingDetail = async (
   payload: UpdateMeetingRequest
 ): Promise<void> => {
   await axiosInstance.put<ApiResponse<number>>(`/api/v1/meetings/${meetingId}`, payload);
+};
+
+// 내가 속한 회의 목록 조회
+export const getMyMeetingList = async (
+  status?: string,
+  sort: 'asc' | 'desc' = 'desc'
+): Promise<MeetingListResponse[]> => {
+  const params: Record<string, string> = { sort };
+  if (status) {
+    params.status = status;
+  }
+
+  const res = await axiosInstance.get<ApiResponse<MeetingListResponse[]>>('/api/v1/meetings/my', {
+    params,
+  });
+  return res.data.data;
+};
+
+// 회의 생성 API 함수
+export const createMeeting = async (
+  payload: CreateMeetingRequest
+): Promise<CreateMeetingResponse> => {
+  const res = await axiosInstance.post<ApiResponse<CreateMeetingResponse>>(
+    '/api/v1/meetings',
+    payload
+  );
+  return res.data.data;
 };
