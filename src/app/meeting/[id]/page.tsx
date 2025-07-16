@@ -140,7 +140,6 @@ export default function MeetingDetailPage() {
         })),
       };
       await updateMeetingDetail(meetingId, updateData);
-      router.push(`/meetings/${meetingId}`); // 수정 후 페이지 리디렉션
     } catch (error) {
       console.error('회의 정보 수정 실패:', error);
     }
@@ -169,7 +168,7 @@ export default function MeetingDetailPage() {
   const handleEndMeeting = async () => {
     try {
       await handleUpdateMeeting(); // 회의 정보 저장
-      router.push(`/meeting/${meetingId}/result`);
+      router.push(`/team/records/${meetingId}`);
     } catch (err) {
       console.error('회의 종료 중 오류:', err);
     }
