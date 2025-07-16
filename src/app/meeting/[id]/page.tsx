@@ -168,7 +168,7 @@ export default function MeetingDetailPage() {
   const handleEndMeeting = async () => {
     try {
       await handleUpdateMeeting(); // 회의 정보 저장
-      router.push(`/team/records/${meetingId}`);
+      router.push(`/meeting/${meetingId}/result`);
     } catch (err) {
       console.error('회의 종료 중 오류:', err);
     }
