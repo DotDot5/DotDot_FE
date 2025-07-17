@@ -66,7 +66,7 @@ export default function MeetingRecordsPage() {
           {currentRecords.map((record) => (
             <Card
               key={record.meetingId}
-              onClick={() => router.push(`/meeting/${record.meetingId}/result`)}
+              onClick={() => router.push(`/team/records/${record.meetingId}`)}
               className="bg-gray-50 border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow"
             >
               <CardContent className="p-6">

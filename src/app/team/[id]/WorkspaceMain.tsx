@@ -465,7 +465,7 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
                 pastMeetings.map((meeting) => (
                   <div
                     key={meeting.meetingId}
-                    onClick={() => router.push(`/meeting/${meeting.meetingId}/result`)}
+                    onClick={() => router.push(`/team/records/${meeting.meetingId}`)}
                     className="p-3 bg-white rounded-xl border border-gray-200"
                   >
                     <span className="text-sm text-[#666666] mr-2">
