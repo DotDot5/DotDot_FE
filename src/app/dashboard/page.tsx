@@ -68,7 +68,7 @@ export default function DashboardPage() {
                 <li
                   key={meeting.meetingId}
                   className="font-semibold cursor-pointer p-2 rounded"
-                  onClick={() => router.push(`/meeting/${meeting.meetingId}/view`)}
+                  onClick={() => router.push(`/team/records/${meeting.meetingId}`)}
                 >
                   [{meeting.teamName}] {formatDate(meeting.meetingAt)} {meeting.title}
                 </li>

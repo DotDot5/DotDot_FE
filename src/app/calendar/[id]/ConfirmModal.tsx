@@ -35,7 +35,10 @@ export default function ConfirmModal({
           </button>
         </div>
         <div className="mb-6 text-gray-700">
-          <p>{message}</p>
+          <p>
+            선택하신 작업을 정말로 삭제하시겠습니까?
+            <br />이 작업은 되돌릴 수 없습니다.
+          </p>
         </div>
         <div className="flex justify-end space-x-3">
           <button

@@ -78,6 +78,11 @@ export interface CreateMeetingResponse {
   meetingId: number;
 }
 
+export interface MeetingSttResultResponse {
+  duration: number;
+  transcript: string;
+}
+
 // 회의 목록 조회
 export const getMeetings = async (
   teamId: string,
@@ -136,6 +141,13 @@ export const createMeeting = async (
   const res = await axiosInstance.post<ApiResponse<CreateMeetingResponse>>(
     '/api/v1/meetings',
     payload
+  );
+  return res.data.data;
+};
+
+export const getMeetingSttResult = async (meetingId: number): Promise<MeetingSttResultResponse> => {
+  const res = await axiosInstance.get<ApiResponse<MeetingSttResultResponse>>(
+    `/api/v1/meetings/${meetingId}/stt-result`
   );
   return res.data.data;
 };

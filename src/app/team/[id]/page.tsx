@@ -30,8 +30,6 @@ export default function TeamPage() {
     queryClient.invalidateQueries({ queryKey: ['pastMeetings', teamId] });
   };
 
-  console.log(teamId);
-
   return (
     <>
       <MainLayout>

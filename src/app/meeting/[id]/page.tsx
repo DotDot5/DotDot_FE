@@ -1,16 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getMeetingDetail, updateMeetingDetail } from '@/api/meeting';
 import { Button } from '@/components/internal/ui/button';
 import { Card, CardContent } from '@/components/internal/ui/card';
-import { Clock, Users, Play, Pause, Square, Send, X } from 'lucide-react';
+import { Clock, Users, Play, Pause, Square, Send, X, Download, Upload } from 'lucide-react';
 import { Input } from '@/components/internal/ui/input';
-
-// interface PageProps {
-//   params: { id: string }; // URL의 [id]를 받기 위한 타입
-// }
+import { transcribeAudio } from '@/api/stt';
 
 interface AgendaItem {
   id: number;
@@ -26,32 +23,20 @@ interface ChatMessage {
 }
 
 export default function MeetingDetailPage() {
-  // const meetingId = Number(params.id); // 문자열을 숫자로 변환
   const params = useParams();
   const meetingId = Number(params.id);
   const router = useRouter();
 
-  const [isRecording, setIsRecording] = useState(true);
-  const [isPaused, setIsPaused] = useState(false);
-  const [recordingTime, setRecordingTime] = useState('00:15:32');
-
   const [meetingTitle, setMeetingTitle] = useState('');
-  const [meetingDate, setMeetingDate] = useState(''); // 화면용
-  const [meetingDateISO, setMeetingDateISO] = useState(''); // API용
+  const [meetingDate, setMeetingDate] = useState('');
+  const [meetingDateISO, setMeetingDateISO] = useState('');
   const [participantCount, setParticipantCount] = useState(0);
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
   const [meetingNotes, setMeetingNotes] = useState('');
-  const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME'>('RECORD'); // 회의 방법
-  const [teamId, setTeamId] = useState<number>(0); // 팀 ID 상태 추가
+  const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME'>('RECORD');
+  const [teamId, setTeamId] = useState<number>(0);
   const [newMessage, setNewMessage] = useState('');
   const [participants, setParticipants] = useState<any[]>([]);
-
-  // const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([
-  //   { id: 1, title: '백엔드 API 명세서', description: '안건에 대한 메모를 작성하세요' },
-  //   { id: 2, title: '백엔드 API 명세서', description: '안건에 대한 메모를 작성하세요' },
-  // ]);
-
-  // const [meetingNotes, setMeetingNotes] = useState('회의에 대한 질문사항을 자유롭게 메모하세요');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
     { id: 2, type: 'user', content: '궁금한신 게 있으시다면 말씀해주세요', timestamp: new Date() },
@@ -64,26 +49,269 @@ export default function MeetingDetailPage() {
     { id: 4, type: 'user', content: '그건...', timestamp: new Date() },
   ]);
 
-  // 회의 정보 조회
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [recordingTime, setRecordingTime] = useState('00:00:00');
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const [isMeetingEnded, setIsMeetingEnded] = useState(false);
+  const [finalRecordingTime, setFinalRecordingTime] = useState('00:00:00');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [audioDurationSeconds, setAudioDurationSeconds] = useState<number>(0);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef(0);
+  const pausedTimeRef = useRef(0);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+
+  useEffect(() => {
+    if (isMeetingEnded) {
+      setFinalRecordingTime(recordingTime);
+    }
+  }, [isMeetingEnded, recordingTime]);
+
+  useEffect(() => {
+    if (isRecording && !isPaused) {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+      timerIntervalRef.current = setInterval(() => {
+        const elapsedSeconds = Math.floor(
+          (Date.now() - startTimeRef.current + pausedTimeRef.current) / 1000
+        );
+        const hours = String(Math.floor(elapsedSeconds / 3600)).padStart(2, '0');
+        const minutes = String(Math.floor((elapsedSeconds % 3600) / 60)).padStart(2, '0');
+        const seconds = String(elapsedSeconds % 60).padStart(2, '0');
+        setRecordingTime(`${hours}:${minutes}:${seconds}`);
+      }, 1000);
+    } else {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      console.log('[Cleanup Effect] Timer cleanup triggered!');
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [isRecording, isPaused]);
+
+  useEffect(() => {
+    return () => {
+      if (recordedAudioUrl) {
+        URL.revokeObjectURL(recordedAudioUrl);
+        console.log('Recorded audio URL revoked on unmount.');
+      }
+    };
+  }, [recordedAudioUrl]);
+
+  const handleStartRecording = async () => {
+    console.log('[handleStartRecording] 함수 시작');
+    try {
+      // 기존 상태 초기화 로직 유지
+      setIsMeetingEnded(false);
+      setFinalRecordingTime('00:00:00');
+      setRecordedBlob(null);
+      setAudioDurationSeconds(0);
+      if (recordedAudioUrl) {
+        URL.revokeObjectURL(recordedAudioUrl);
+        setRecordedAudioUrl(null);
+      }
+      setIsTranscribing(false);
+
+      alert(
+        "컴퓨터의 소리도 함께 녹음하려면 화면 공유 팝업에서 '시스템 오디오 공유'를 체크해주세요."
+      );
+
+      // 1. 화면 공유 스트림과 마이크 스트림을 동시에 요청합니다.
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // 2. AudioContext를 생성합니다.
+      const audioContext = new AudioContext();
+      const destination = audioContext.createMediaStreamDestination();
+
+      // 3. 화면 공유 스트림의 오디오 소스를 AudioContext에 연결합니다.
+      const screenSource = audioContext.createMediaStreamSource(screenStream);
+      screenSource.connect(destination);
+
+      // 4. 마이크 스트림의 오디오 소스를 AudioContext에 연결합니다.
+      const micSource = audioContext.createMediaStreamSource(micStream);
+      micSource.connect(destination);
+
+      // 5. 혼합된 오디오 스트림을 MediaRecorder에 전달합니다.
+      const combinedStream = destination.stream;
+      audioStreamRef.current = combinedStream;
+
+      const options = { mimeType: 'audio/webm' };
+      const recorder = new MediaRecorder(combinedStream, options);
+      mediaRecorderRef.current = recorder;
+
+      // ... 기존 MediaRecorder 이벤트 핸들러 로직 유지 (onstop, ondataavailable 등) ...
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        // 기존 onstop 로직 유지
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setRecordedBlob(blob);
+        const url = URL.createObjectURL(blob);
+        setRecordedAudioUrl(url);
+
+        // 모든 스트림 트랙을 정지합니다.
+        micStream.getTracks().forEach((track) => track.stop());
+        screenStream.getTracks().forEach((track) => track.stop());
+
+        if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach((track) => track.stop());
+          audioStreamRef.current = null;
+        }
+
+        mediaRecorderRef.current = null;
+        audioChunksRef.current = [];
+        setIsMeetingEnded(true);
+
+        // AudioContext를 닫습니다.
+        audioContext.close();
+      };
+
+      // 6. 녹음을 시작하고 상태를 업데이트합니다.
+      recorder.start(1000);
+      startTimeRef.current = Date.now();
+      pausedTimeRef.current = 0;
+      setRecordingTime('00:00:00');
+      setIsRecording(true);
+      setIsPaused(false);
+      console.log('[handleStartRecording] 녹음 시작 상태 설정 완료');
+    } catch (err) {
+      console.error('[handleStartRecording] 오류 발생:', err);
+      setIsRecording(false);
+      setIsPaused(false);
+      setRecordedBlob(null);
+      setAudioDurationSeconds(0);
+      if (recordedAudioUrl) {
+        URL.revokeObjectURL(recordedAudioUrl);
+      }
+      setRecordedAudioUrl(null);
+      if ((err as DOMException).name === 'NotAllowedError') {
+        alert('마이크 또는 화면 공유 권한이 거부되었습니다. 권한을 허용하고 다시 시도해주세요.');
+      } else if ((err as DOMException).name === 'NotFoundError') {
+        alert('마이크 장치를 찾을 수 없습니다.');
+      } else {
+        alert(`녹음 시작 중 오류 발생: ${(err as Error).message}`);
+      }
+    }
+  };
+
+  const handlePauseResumeRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === 'inactive') {
+      console.warn('MediaRecorder is not active. Cannot pause/resume.');
+      return;
+    }
+    if (recorder.state === 'recording') {
+      recorder.pause();
+      pausedTimeRef.current += Date.now() - startTimeRef.current;
+      setIsPaused(true);
+    } else if (recorder.state === 'paused') {
+      recorder.resume();
+      startTimeRef.current = Date.now();
+      setIsPaused(false);
+    } else {
+      console.warn(`Cannot perform action. Current state: ${recorder.state}`);
+    }
+  };
+
+  const handleStopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === 'inactive') {
+      console.warn('MediaRecorder not active or already inactive.');
+      return;
+    }
+    recorder.stop();
+    setIsRecording(false);
+    setIsPaused(false);
+    startTimeRef.current = 0;
+    pausedTimeRef.current = 0;
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      audioStreamRef.current = null;
+    }
+  };
+
+  const handleDownloadRecording = () => {
+    if (recordedAudioUrl && recordedBlob) {
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = recordedAudioUrl;
+      const date = new Date(meetingDateISO);
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const formattedDate = `${year}_${month}_${day}`;
+      const fileName = `${meetingTitle}_${formattedDate}.webm`;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      console.warn('No recorded audio available for download.');
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+      const audio = new Audio(URL.createObjectURL(file));
+      audio.onloadedmetadata = () => {
+        setAudioDurationSeconds(audio.duration);
+        console.log('업로드된 파일 길이:', audio.duration, '초');
+      };
+    }
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const data = await getMeetingDetail(meetingId);
         setMeetingTitle(data.title);
-        setMeetingDate(formatKoreanDate(data.meetingAt)); // 포맷 함수는 아래 정의
-        setMeetingDateISO(data.meetingAt); // ISO 포맷 그대로 저장
+        setMeetingDate(formatKoreanDate(data.meetingAt));
+        setMeetingDateISO(data.meetingAt);
         setParticipantCount(data.participants.length);
         setMeetingMethod(data.meetingMethod);
         setParticipants(data.participants);
         setAgendaItems(
-          data.agendas.map((a, i) => ({
+          data.agendas.map((a: any, i: number) => ({
             id: i + 1,
             title: a.agenda,
             description: a.body,
           }))
         );
         setMeetingNotes(data.note);
-        setTeamId(data.teamId); // teamId 상태 설정
+        setTeamId(data.teamId);
       } catch (err) {
         console.error('회의 정보 불러오기 실패:', err);
       }
@@ -107,7 +335,6 @@ export default function MeetingDetailPage() {
     return `${day} ${time}`;
   };
 
-  // 안건 추가
   const handleAddAgenda = () => {
     const newAgenda: AgendaItem = {
       id: agendaItems.length + 1,
@@ -117,33 +344,35 @@ export default function MeetingDetailPage() {
     setAgendaItems([...agendaItems, newAgenda]);
   };
 
-  // 안건 수정
   const handleUpdateAgenda = (id: number, field: 'title' | 'description', value: string) => {
     setAgendaItems(
       agendaItems.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
   };
 
-  // 회의 정보 업데이트
   const handleUpdateMeeting = async () => {
     try {
       const updateData = {
-        teamId, // teamId 추가
+        teamId,
         title: meetingTitle,
         meetingAt: meetingDateISO,
         meetingMethod,
         note: meetingNotes,
-        participants: participants, // 참가자 목록 처리해야 함
+        participants: participants,
         agendas: agendaItems.map((item) => ({
           agenda: item.title,
           body: item.description,
         })),
       };
       await updateMeetingDetail(meetingId, updateData);
+      console.log('회의 정보 업데이트 성공');
     } catch (error) {
       console.error('회의 정보 수정 실패:', error);
+      alert(`회의 정보 저장 중 오류 발생: ${(error as Error).message}`);
+      throw error;
     }
   };
+
   const handleSendMessage = () => {
     if (newMessage.trim()) {
       const message: ChatMessage = {
@@ -157,20 +386,103 @@ export default function MeetingDetailPage() {
     }
   };
 
-  const handlePauseResume = () => {
-    setIsPaused(!isPaused);
-  };
-
-  const handleStopRecording = () => {
-    setIsRecording(false);
+  const calculateTotalSeconds = (timeString: string): number => {
+    const parts = timeString.split(':');
+    if (parts.length !== 3) {
+      console.error('Invalid time format:', timeString);
+      return 0;
+    }
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    const seconds = parseInt(parts[2], 10);
+    return hours * 3600 + minutes * 60 + seconds;
   };
 
   const handleEndMeeting = async () => {
+    console.log('회의 종료 처리 시작...');
+    setIsTranscribing(true);
     try {
-      await handleUpdateMeeting(); // 회의 정보 저장
-      router.push(`/meeting/${meetingId}/result`);
+      if (meetingMethod === 'REALTIME') {
+        if (isRecording) {
+          handleStopRecording();
+          await new Promise<void>((resolve) => {
+            const checkBlobInterval = setInterval(() => {
+              if (recordedBlob) {
+                clearInterval(checkBlobInterval);
+                resolve();
+              }
+            }, 100);
+          });
+        }
+      }
+      await handleUpdateMeeting();
+      const commonQueryParams = new URLSearchParams();
+      commonQueryParams.append('meetingTitle', encodeURIComponent(meetingTitle));
+      commonQueryParams.append('meetingDateISO', encodeURIComponent(meetingDateISO));
+      commonQueryParams.append('participantCount', participantCount.toString());
+      let audioToProcess: Blob | null = null;
+      let fileName: string | null = null;
+      let durationToProcess: number | null = null;
+      if (meetingMethod === 'REALTIME' && recordedBlob) {
+        audioToProcess = recordedBlob;
+        const calculatedDuration = calculateTotalSeconds(finalRecordingTime);
+        durationToProcess = calculatedDuration > 0 ? calculatedDuration : audioDurationSeconds;
+        console.log(
+          `[REALTIME] Calculated duration: ${calculatedDuration}, audioDurationSeconds: ${audioDurationSeconds}`
+        );
+        if (durationToProcess === 0) {
+          console.warn('Realtime audio duration is 0, transcribeAudio will likely fail.');
+        }
+        const date = new Date(meetingDateISO);
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        fileName = `${meetingTitle}_${year}_${month}_${day}.webm`;
+      } else if (meetingMethod === 'RECORD' && uploadedFile) {
+        audioToProcess = uploadedFile;
+        durationToProcess = audioDurationSeconds;
+        fileName = uploadedFile.name;
+        durationToProcess = await new Promise<number>((resolve) => {
+          const audio = new Audio(URL.createObjectURL(uploadedFile));
+          audio.onloadedmetadata = () => {
+            const duration = audio.duration;
+            if (isFinite(duration) && duration > 0) {
+              resolve(duration);
+            } else {
+              console.warn('업로드된 파일의 duration이 유효하지 않습니다. 0으로 처리합니다.');
+              resolve(0);
+            }
+            URL.revokeObjectURL(audio.src);
+          };
+          audio.onerror = () => {
+            console.error('업로드된 파일의 메타데이터를 읽는 데 실패했습니다. 0으로 처리합니다.');
+            resolve(0);
+            URL.revokeObjectURL(audio.src);
+          };
+        });
+      }
+      if (audioToProcess && fileName) {
+        console.log('회의 종료: STT를 위해 오디오 파일을 서버로 전송합니다.');
+        console.log(`Audio duration for STT to be sent: ${durationToProcess} seconds`);
+        const sttResultId = await transcribeAudio(
+          audioToProcess,
+          fileName,
+          meetingId,
+          durationToProcess
+        );
+        console.log('STT 요청 성공. STT 결과 ID:', sttResultId);
+        commonQueryParams.append('sttResultId', sttResultId);
+        router.push(`/meeting/${meetingId}/result?${commonQueryParams.toString()}`);
+      } else {
+        console.warn('처리할 오디오가 없어 STT를 실행하지 않고 결과 페이지로 이동합니다.');
+        alert('처리할 오디오가 없습니다. 결과 페이지로 이동합니다.');
+        router.push(`/meeting/${meetingId}/result?${commonQueryParams.toString()}`);
+      }
     } catch (err) {
-      console.error('회의 종료 중 오류:', err);
+      console.error('회의 종료 및 처리 중 오류:', err);
+      alert(`회의 종료 처리 중 오류가 발생했습니다: ${(err as Error).message}`);
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
@@ -178,11 +490,31 @@ export default function MeetingDetailPage() {
     setAgendaItems(agendaItems.filter((item) => item.id !== id));
   };
 
+  const getMeetingStatusText = () => {
+    if (isTranscribing) {
+      return '음성 분석 요청 중...';
+    }
+    if (meetingMethod === 'REALTIME' && isRecording) {
+      return '회의 진행 중';
+    }
+    if (meetingMethod === 'REALTIME' && isMeetingEnded) {
+      return '회의 녹음 종료';
+    }
+    if (meetingMethod === 'RECORD' && uploadedFile) {
+      return (
+        <>
+          <span>파일 업로드 완료</span>
+          <br />
+          <span>{uploadedFile.name}</span>
+        </>
+      );
+    }
+    return '회의 시작 전';
+  };
+
   return (
     <div className="h-full bg-gray-50 flex overflow-hidden">
-      {/* Main Content - Left Side */}
       <div className="flex-1 flex flex-col relative">
-        {/* Fixed Header - 상단 고정 */}
         <div className="flex-shrink-0 p-6 bg-gray-50 border-b border-gray-200">
           <Card className="border border-gray-200">
             <CardContent className="p-6">
@@ -203,20 +535,22 @@ export default function MeetingDetailPage() {
                 <Button
                   onClick={handleEndMeeting}
                   className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2"
+                  disabled={
+                    isTranscribing ||
+                    (meetingMethod === 'REALTIME' && isRecording && !recordedBlob) ||
+                    (meetingMethod === 'RECORD' && !uploadedFile)
+                  }
                 >
-                  회의 종료
+                  {isTranscribing ? '처리 중...' : '회의 종료'}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* Scrollable Content - 중간 스크롤 영역 */}
         <div
           className="flex-1 overflow-y-auto px-6 py-6"
           style={{ height: 'calc(100vh - 140px - 120px)' }}
         >
-          {/* Meeting Agenda */}
           <Card className="mb-6">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -233,7 +567,6 @@ export default function MeetingDetailPage() {
                   추가
                 </Button>
               </div>
-
               <div className="space-y-4">
                 {agendaItems.map((item) => (
                   <div key={item.id} className="space-y-2">
@@ -271,8 +604,6 @@ export default function MeetingDetailPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Meeting Notes */}
           <Card className="mb-6">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -294,48 +625,103 @@ export default function MeetingDetailPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Fixed Recording Controls - 하단 오버레이 */}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pointer-events-none">
           <div className="pointer-events-auto">
-            <Card className="bg-gray-400 text-white shadow-xl">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+            {meetingMethod === 'REALTIME' ? (
+              <Card className="bg-gray-400 text-white shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        {isRecording && !isPaused && (
+                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        )}
+                        <span className="font-mono text-lg">{recordingTime}</span>
+                        <span className="text-sm">{getMeetingStatusText()}</span>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="font-mono text-lg">{recordingTime}</span>
-                      <span className="text-sm">회의 진행 중</span>
+                      {!isRecording && !recordedAudioUrl && (
+                        <Button
+                          onClick={handleStartRecording}
+                          size="sm"
+                          variant="ghost"
+                          className="text-white hover:bg-[#333333] p-2"
+                          disabled={isTranscribing}
+                        >
+                          <Play className="w-5 h-5" />
+                        </Button>
+                      )}
+                      {isRecording && (
+                        <Button
+                          onClick={handlePauseResumeRecording}
+                          size="sm"
+                          variant="ghost"
+                          className="text-white hover:bg-[#333333] p-2"
+                        >
+                          {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
+                        </Button>
+                      )}
+                      {isRecording && (
+                        <Button
+                          onClick={handleStopRecording}
+                          size="sm"
+                          variant="ghost"
+                          className="text-white hover:bg-[#333333] p-2"
+                        >
+                          <Square className="w-5 h-5" />
+                        </Button>
+                      )}
+                      {!isRecording && recordedAudioUrl && !isTranscribing && (
+                        <Button
+                          onClick={handleDownloadRecording}
+                          size="sm"
+                          className="bg-green-500 hover:bg-green-600 text-white p-2 flex items-center gap-1"
+                        >
+                          <Download className="w-5 h-5" />
+                          다운로드
+                        </Button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={handlePauseResume}
-                      size="sm"
-                      variant="ghost"
-                      className="text-white hover:bg-[#333333] p-2"
-                    >
-                      {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
-                    </Button>
-                    <Button
-                      onClick={handleStopRecording}
-                      size="sm"
-                      variant="ghost"
-                      className="text-white hover:bg-[#333333] p-2"
-                    >
-                      <Square className="w-5 h-5" />
-                    </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-gray-400 text-white shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        {uploadedFile && <div className="flex items-center"></div>}
+                        <span className="text-sm">{getMeetingStatusText()}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept="audio/*"
+                        className="hidden"
+                      />
+                      <Button
+                        onClick={triggerFileUpload}
+                        size="sm"
+                        className="bg-[#3B82F6] hover:bg-[#3B82F6] text-white p-2 flex items-center gap-1"
+                        disabled={isTranscribing}
+                      >
+                        <Upload className="w-5 h-5" />
+                        파일 업로드
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
-
-      {/* AI Assistant Sidebar - 오른쪽 독립 스크롤 */}
       <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
-        {/* Chat Header - 고정 */}
         <div className="flex-shrink-0 p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center">
@@ -344,8 +730,6 @@ export default function MeetingDetailPage() {
             <h3 className="font-semibold text-[#333333]">AI 어시스턴트</h3>
           </div>
         </div>
-
-        {/* Chat Messages - 독립 스크롤 */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {chatMessages.map((message) => (
             <div
@@ -364,8 +748,6 @@ export default function MeetingDetailPage() {
             </div>
           ))}
         </div>
-
-        {/* Chat Input - 고정 */}
         <div className="flex-shrink-0 p-4 border-t border-gray-200">
           <div className="flex gap-2">
             <Input
