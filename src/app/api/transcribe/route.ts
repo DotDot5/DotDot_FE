@@ -40,7 +40,6 @@ export async function POST(req: Request) {
     const meetingIdField = formData.get('meetingId');
     const initialRecordingOffsetSecondsField = formData.get('initialRecordingOffsetSeconds');
     const durationField = formData.get('duration');
-    // 기존 audioChannelCount 필드를 사용하지 않으므로 변수 제거
 
     let initialRecordingOffsetSeconds = 0;
     if (initialRecordingOffsetSecondsField) {
@@ -60,9 +59,6 @@ export async function POST(req: Request) {
         audioDurationInSeconds = 0;
       }
     }
-    console.log(`[DEBUG] Received audio duration: ${audioDurationInSeconds} seconds`);
-
-    // audioChannelCount를 클라이언트에서 받은 값 대신 1로 고정
     const audioChannelCount = 1;
     console.log(`[DEBUG] Using fixed audio channel count: ${audioChannelCount}`);
 
@@ -98,7 +94,7 @@ export async function POST(req: Request) {
       model: 'latest_long',
       enableAutomaticPunctuation: true,
       enableWordTimeOffsets: true,
-      audioChannelCount: 2, // 👈 고정된 값 사용
+      audioChannelCount: 2,
       diarizationConfig: {
         enableSpeakerDiarization: true,
         minSpeakerCount: 1,
