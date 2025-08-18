@@ -107,8 +107,8 @@ export async function POST(req: Request) {
       audioChannelCount: audioChannelCount,
       diarizationConfig: {
         enableSpeakerDiarization: true,
-        minSpeakerCount: 2,
-        maxSpeakerCount: 2,
+        minSpeakerCount: 1,
+        maxSpeakerCount: 5,
       },
     };
 
