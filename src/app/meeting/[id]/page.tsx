@@ -1,0 +1,662 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { getMeetingDetail, updateMeetingDetail } from '@/api/meeting';
+import { Button } from '@/components/internal/ui/button';
+import { Card, CardContent } from '@/components/internal/ui/card';
+import {
+  Clock,
+  Users,
+  Play,
+  Pause,
+  Square,
+  Send,
+  X,
+  Download,
+  Upload,
+  Loader2,
+} from 'lucide-react';
+import { Input } from '@/components/internal/ui/input';
+
+interface AgendaItem {
+  id: number;
+  title: string;
+  description: string;
+}
+
+interface ChatMessage {
+  id: number;
+  type: 'ai' | 'user';
+  content: string;
+  timestamp: Date;
+}
+
+export default function MeetingDetailPage() {
+  const params = useParams();
+  const meetingId = Number(params.id);
+  const router = useRouter();
+
+  // 녹음 및 파일 관련 상태
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [recordingTime, setRecordingTime] = useState('00:00:00');
+  const [seconds, setSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isMeetingEnded, setIsMeetingEnded] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 회의 정보 상태
+  const [meetingTitle, setMeetingTitle] = useState('');
+  const [meetingDate, setMeetingDate] = useState('');
+  const [meetingDateISO, setMeetingDateISO] = useState('');
+  const [participantCount, setParticipantCount] = useState(0);
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
+  const [meetingNotes, setMeetingNotes] = useState('');
+  const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME'>('REALTIME');
+  const [teamId, setTeamId] = useState<number>(0);
+  const [newMessage, setNewMessage] = useState('');
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
+    { id: 2, type: 'ai', content: '궁금한 점이 있으시다면 말씀해주세요', timestamp: new Date() },
+  ]);
+
+  // 회의 정보 조회
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await getMeetingDetail(meetingId);
+        setMeetingTitle(data.title);
+        setMeetingDate(formatKoreanDate(data.meetingAt));
+        setMeetingDateISO(data.meetingAt);
+        setParticipantCount(data.participants.length);
+        setMeetingMethod(data.meetingMethod);
+        setParticipants(data.participants);
+        setAgendaItems(
+          data.agendas.map((a: { agenda: string; body: string }, i: number) => ({
+            id: i + 1,
+            title: a.agenda,
+            description: a.body,
+          }))
+        );
+        setMeetingNotes(data.note);
+        setTeamId(data.teamId);
+      } catch (err) {
+        console.error('회의 정보 불러오기 실패:', err);
+      }
+    };
+    fetchData();
+  }, [meetingId]);
+
+  // 녹음 시간 업데이트
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (isRecording && !isPaused) {
+      timer = setInterval(() => {
+        setSeconds((prevSeconds) => prevSeconds + 1);
+      }, 1000);
+    } else if (!isRecording && timer) {
+      clearInterval(timer);
+    }
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
+  }, [isRecording, isPaused]);
+
+  // 초를 시간 형식으로 변환
+  useEffect(() => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    setRecordingTime(
+      `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(
+        remainingSeconds
+      ).padStart(2, '0')}`
+    );
+  }, [seconds]);
+
+  // 실시간 녹음 시작 함수
+  const handleStartRecording = async () => {
+    try {
+      const audioContext = new AudioContext();
+      const microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      let systemAudioStream = null;
+      try {
+        systemAudioStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+      } catch (e) {
+        console.warn('System audio capture not supported or denied:', e);
+      }
+
+      const combinedDestination = audioContext.createMediaStreamDestination();
+      const micSource = audioContext.createMediaStreamSource(microphoneStream);
+      micSource.connect(combinedDestination);
+
+      if (systemAudioStream && systemAudioStream.getAudioTracks().length > 0) {
+        const systemSource = audioContext.createMediaStreamSource(systemAudioStream);
+        systemSource.connect(combinedDestination);
+      } else {
+        console.warn('System audio not available. Recording microphone only.');
+      }
+
+      const newMediaRecorder = new MediaRecorder(combinedDestination.stream, {
+        mimeType: 'audio/webm;codecs=opus',
+        bitsPerSecond: 128000, // 비트레이트 설정 (높을수록 좋음)
+      });
+      newMediaRecorder.start();
+      setIsRecording(true);
+      setIsPaused(false);
+      setSeconds(0);
+      setRecordedBlob(null);
+      audioChunksRef.current = [];
+
+      newMediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorderRef.current = newMediaRecorder;
+    } catch (err) {
+      console.error('녹음 시작 실패:', err);
+      alert('녹음을 시작할 수 없습니다. 마이크 및 화면 공유 권한을 허용해주세요.');
+    }
+  };
+
+  const handlePauseResumeRecording = () => {
+    if (mediaRecorderRef.current) {
+      if (isPaused) {
+        mediaRecorderRef.current.resume();
+      } else {
+        mediaRecorderRef.current.pause();
+      }
+      setIsPaused(!isPaused);
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setIsMeetingEnded(true);
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm; codecs=opus' });
+        setRecordedBlob(audioBlob);
+        audioChunksRef.current = [];
+      };
+    }
+  };
+
+  const uploadRecordingForTranscription = async (file: Blob | File, duration: number) => {
+    setIsTranscribing(true);
+    const formData = new FormData();
+    formData.append('audio', file, `meeting_${meetingId}.webm`);
+    formData.append('meetingId', String(meetingId));
+    formData.append('duration', String(duration));
+
+    try {
+      // TODO: 백엔드 STT API 엔드포인트로 변경
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Transcription failed');
+      }
+
+      const result = await response.json();
+      console.log('Transcription Result:', result);
+      // TODO: 백엔드 응답을 기반으로 DB에 저장 또는 상태 업데이트 로직 추가
+    } catch (error) {
+      console.error('음성 분석 업로드 실패:', error);
+      alert('음성 분석 중 오류가 발생했습니다.');
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  // 녹음 파일 다운로드 함수
+  const handleDownloadRecording = () => {
+    if (recordedBlob) {
+      const url = URL.createObjectURL(recordedBlob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+
+      const meetingDate = new Date(meetingDateISO);
+      const year = meetingDate.getFullYear();
+      const month = String(meetingDate.getMonth() + 1).padStart(2, '0');
+      const day = String(meetingDate.getDate()).padStart(2, '0');
+
+      const fileName = `${meetingTitle}_${year}_${month}_${day}.webm`;
+      a.download = fileName;
+
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+  };
+
+  // 파일 업로드 처리 함수
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+    }
+  };
+
+  // 숨겨진 input을 클릭하는 함수
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const formatKoreanDate = (isoString: string): string => {
+    const date = new Date(isoString);
+    const day = date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+    });
+    const time = date.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return `${day} ${time}`;
+  };
+
+  const handleAddAgenda = () => {
+    const newAgenda: AgendaItem = {
+      id: agendaItems.length + 1,
+      title: '새 안건',
+      description: '',
+    };
+    setAgendaItems([...agendaItems, newAgenda]);
+  };
+
+  const handleUpdateAgenda = (id: number, field: 'title' | 'description', value: string) => {
+    setAgendaItems(
+      agendaItems.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const handleUpdateMeeting = async () => {
+    try {
+      const updateData = {
+        teamId,
+        title: meetingTitle,
+        meetingAt: meetingDateISO,
+        meetingMethod,
+        note: meetingNotes,
+        participants: participants,
+        agendas: agendaItems.map((item) => ({
+          agenda: item.title,
+          body: item.description,
+        })),
+      };
+      await updateMeetingDetail(meetingId, updateData);
+    } catch (error) {
+      console.error('회의 정보 수정 실패:', error);
+    }
+  };
+
+  const handleSendMessage = () => {
+    if (newMessage.trim()) {
+      const message: ChatMessage = {
+        id: chatMessages.length + 1,
+        type: 'user',
+        content: newMessage,
+        timestamp: new Date(),
+      };
+      setChatMessages([...chatMessages, message]);
+      setNewMessage('');
+    }
+  };
+
+  const handleEndMeeting = async () => {
+    try {
+      await handleUpdateMeeting();
+
+      // ✨ 녹음 시간을 초 단위로 변환
+      const [hours, minutes, seconds] = recordingTime.split(':').map(Number);
+      const totalDurationInSeconds = hours * 3600 + minutes * 60 + seconds;
+
+      const file = meetingMethod === 'REALTIME' ? recordedBlob : uploadedFile;
+
+      if (file) {
+        await uploadRecordingForTranscription(file, totalDurationInSeconds); // duration 값 전달
+      }
+
+      const query = new URLSearchParams({
+        title: encodeURIComponent(meetingTitle),
+        date: encodeURIComponent(meetingDate),
+        participants: String(participantCount),
+      }).toString();
+
+      router.push(`/meeting/${meetingId}/result?${query}`);
+    } catch (err) {
+      console.error('회의 종료 중 오류:', err);
+    }
+  };
+
+  const handleDeleteAgenda = (id: number) => {
+    setAgendaItems(agendaItems.filter((item) => item.id !== id));
+  };
+
+  // 회의 상태 텍스트 반환
+  const getMeetingStatusText = () => {
+    if (isTranscribing) {
+      return '음성 분석 요청 중...';
+    }
+    if (meetingMethod === 'REALTIME' && isRecording) {
+      return '회의 진행 중';
+    }
+    if (meetingMethod === 'REALTIME' && isMeetingEnded) {
+      return '회의 녹음 종료';
+    }
+    if (meetingMethod === 'RECORD' && uploadedFile) {
+      return (
+        <>
+          <span>파일 업로드 완료</span>
+          <br />
+          <span>{uploadedFile.name}</span>
+        </>
+      );
+    }
+    return '회의 시작 전';
+  };
+
+  return (
+    <div className="h-full bg-gray-50 flex overflow-hidden">
+      {/* Main Content - Left Side */}
+      <div className="flex-1 flex flex-col relative">
+        {/* Fixed Header - 상단 고정 */}
+        <div className="flex-shrink-0 p-6 bg-gray-50 border-b border-gray-200">
+          <Card className="border border-gray-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold text-[#333333] mb-2">{meetingTitle}</h1>
+                  <div className="flex items-center gap-4 text-sm text-[#666666]">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      <span>{meetingDate}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Users className="w-4 h-4" />
+                      <span>{participantCount}명 참석</span>
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleEndMeeting}
+                  className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2"
+                  disabled={
+                    isTranscribing ||
+                    (meetingMethod === 'REALTIME' && !recordedBlob) ||
+                    (meetingMethod === 'RECORD' && !uploadedFile)
+                  }
+                >
+                  {isTranscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '회의 종료'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Scrollable Content - 중간 스크롤 영역 */}
+        <div
+          className="flex-1 overflow-y-auto px-6 py-6"
+          style={{ height: 'calc(100vh - 140px - 120px)' }}
+        >
+          {/* Meeting Agenda */}
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📝</span>
+                  <h2 className="text-xl font-bold text-[#333333]">회의 안건</h2>
+                </div>
+                <Button
+                  onClick={handleAddAgenda}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1 bg-transparent"
+                >
+                  추가
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {agendaItems.map((item) => (
+                  <div key={item.id} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 border-2 border-[#666666] rounded-full"></div>
+                      <input
+                        type="text"
+                        value={item.title}
+                        onChange={(e) => handleUpdateAgenda(item.id, 'title', e.target.value)}
+                        className="font-medium text-[#333333] bg-transparent border-none outline-none flex-1"
+                      />
+                      <Button
+                        onClick={() => handleDeleteAgenda(item.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 h-auto"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <textarea
+                      value={item.description}
+                      onChange={(e) => handleUpdateAgenda(item.id, 'description', e.target.value)}
+                      className="w-full p-3 border border-gray-200 rounded-lg resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm text-[#333333]"
+                      style={{ minHeight: '80px', height: 'auto' }}
+                      placeholder="안건에 대한 메모를 작성하세요"
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Meeting Notes */}
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-lg">📝</span>
+                <h2 className="text-xl font-bold text-[#333333]">회의 메모</h2>
+              </div>
+              <textarea
+                value={meetingNotes}
+                onChange={(e) => setMeetingNotes(e.target.value)}
+                className="w-full p-4 border border-gray-200 rounded-lg resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-sm text-[#333333]"
+                style={{ minHeight: '200px', height: 'auto' }}
+                placeholder="회의에 대한 내용을 자유롭게 메모하세요"
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = target.scrollHeight + 'px';
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Fixed Recording Controls - 하단 오버레이 */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pointer-events-none">
+          <div className="pointer-events-auto">
+            {meetingMethod === 'REALTIME' ? (
+              <Card className="bg-gray-400 text-white shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        {isRecording && (
+                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        )}
+                        <span className="font-mono text-lg">{recordingTime}</span>
+                        <span className="text-sm">{getMeetingStatusText()}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* 회의 시작 전 상태: 시작 버튼 */}
+                      {!isRecording && !isMeetingEnded && (
+                        <Button
+                          onClick={handleStartRecording}
+                          size="sm"
+                          variant="ghost"
+                          className="text-white hover:bg-[#333333] p-2"
+                        >
+                          <Play className="w-5 h-5" />
+                        </Button>
+                      )}
+
+                      {/* 회의 진행 중 상태: 일시정지/재개, 정지 버튼 */}
+                      {isRecording && (
+                        <>
+                          <Button
+                            onClick={handlePauseResumeRecording}
+                            size="sm"
+                            variant="ghost"
+                            className="text-white hover:bg-[#333333] p-2"
+                          >
+                            {isPaused ? (
+                              <Play className="w-5 h-5" />
+                            ) : (
+                              <Pause className="w-5 h-5" />
+                            )}
+                          </Button>
+                          <Button
+                            onClick={handleStopRecording}
+                            size="sm"
+                            variant="ghost"
+                            className="text-white hover:bg-[#333333] p-2"
+                          >
+                            <Square className="w-5 h-5" />
+                          </Button>
+                        </>
+                      )}
+
+                      {/* 회의 녹음 종료 상태: 다운로드 버튼 */}
+                      {isMeetingEnded && recordedBlob && (
+                        <Button
+                          onClick={handleDownloadRecording}
+                          size="sm"
+                          className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
+                        >
+                          <Download className="w-5 h-5" />
+                          다운로드
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-gray-400 text-white shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        {uploadedFile && <div className="flex items-center"></div>}
+                        <span className="text-sm">{getMeetingStatusText()}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept="audio/*"
+                        className="hidden"
+                      />
+                      <Button
+                        onClick={triggerFileUpload}
+                        size="sm"
+                        className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
+                        disabled={isTranscribing}
+                      >
+                        <Upload className="w-5 h-5" />
+                        파일 업로드
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* AI Assistant Sidebar - 오른쪽 독립 스크롤 */}
+      <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
+        {/* Chat Header - 고정 */}
+        <div className="flex-shrink-0 p-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center">
+              <span className="text-white text-sm">🤖</span>
+            </div>
+            <h3 className="font-semibold text-[#333333]">AI 어시스턴트</h3>
+          </div>
+        </div>
+
+        {/* Chat Messages - 독립 스크롤 */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {chatMessages.map((message) => (
+            <div
+              key={message.id}
+              className={`p-3 rounded-lg max-w-[80%] ${
+                message.type === 'ai'
+                  ? 'bg-gray-100 text-[#333333]'
+                  : 'bg-[#3B82F6] text-white ml-auto'
+              }`}
+            >
+              <p className="text-sm">{message.content}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Chat Input - 고정 */}
+        <div className="flex-shrink-0 p-4 border-t border-gray-200">
+          <div className="flex gap-2">
+            <Input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="메시지를 입력하세요"
+              className="flex-1"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSendMessage();
+                }
+              }}
+            />
+            <Button
+              onClick={handleSendMessage}
+              size="sm"
+              className="bg-[#3B82F6] hover:bg-[#3B82F6] text-white p-2"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
