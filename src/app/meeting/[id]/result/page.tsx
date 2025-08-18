@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import SummarySection from '@/components/SummarySection';
 import RecommandSection from '@/components/RecommandSection';
 import { Button } from '@/components/internal/ui/button';
@@ -12,6 +13,12 @@ export default function MeetingPage() {
   const [showTodos, setShowTodos] = useState(true);
   const [openEmailIndex, setOpenEmailIndex] = useState<number | null>(null);
 
+  // URL 쿼리 파라미터 가져오기
+  const searchParams = useSearchParams();
+  const meetingTitle = searchParams.get('title');
+  const meetingDate = searchParams.get('date');
+  const participantCount = searchParams.get('participants');
+
   const handleToggleEmail = (index: number) => {
     setOpenEmailIndex((prev) => (prev === index ? null : index));
   };
@@ -20,10 +27,12 @@ export default function MeetingPage() {
     <div className="flex h-screen bg-background">
       {/* 왼쪽 스크롤 영역 */}
       <div className="w-2/3 overflow-y-auto p-6">
-        <h1 className="text-xl font-bold mb-5">회의 제목</h1>
+        <h1 className="text-xl font-bold mb-5">
+          {meetingTitle ? decodeURIComponent(meetingTitle) : '회의 제목'}
+        </h1>
         <div className="flex gap-4 text-sm text-gray-600 mb-4">
-          <span>2025.07.01 (화) 오후 09:10</span>
-          <span>👥 4명 참석</span>
+          <span>{meetingDate ? decodeURIComponent(meetingDate) : '날짜 정보 없음'}</span>
+          <span>👥 {participantCount ? participantCount : 0}명 참석</span>
         </div>
 
         <SummarySection />
