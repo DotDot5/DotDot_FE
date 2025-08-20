@@ -1,5 +1,6 @@
 // api/meeting.ts
 import axiosInstance from '@/lib/axiosInstance';
+import { getTeamMembers } from './team';
 
 interface ApiResponse<T> {
   data: T;
@@ -26,6 +27,7 @@ export interface MeetingParticipant {
 
 export interface MeetingParticipantWithName extends MeetingParticipant {
   userName: string; // 추가된 필드: 사용자 이름
+  email: string;
 }
 
 export interface MeetingAgenda {
@@ -150,4 +152,43 @@ export const getMeetingSttResult = async (meetingId: number): Promise<MeetingStt
     `/api/v1/meetings/${meetingId}/stt-result`
   );
   return res.data.data;
+};
+
+// 회의 상세 조회 (참석자 이메일 포함)
+export const getMeetingDetailWithParticipantEmails = async (
+  meetingId: number
+): Promise<MeetingDetail & { participants: MeetingParticipantWithName[] }> => {
+  const meetingDetail = await getMeetingDetail(meetingId);
+
+  try {
+    const teamMembers = await getTeamMembers(String(meetingDetail.teamId));
+
+    const participantsWithEmail = meetingDetail.participants.map((participant) => {
+      const teamMember = teamMembers.find((member) => member.userId === participant.userId);
+
+      return {
+        ...participant,
+        email: teamMember?.email || `user${participant.userId}@unknown.com`,
+        userName: teamMember?.name || participant.userName,
+        name: teamMember?.name || participant.userName,
+      };
+    });
+
+    return {
+      ...meetingDetail,
+      participants: participantsWithEmail,
+    };
+  } catch (error) {
+    console.error('팀원 정보 조회 실패:', error);
+
+    const participantsWithPlaceholderEmail = meetingDetail.participants.map((participant) => ({
+      ...participant,
+      email: `user${participant.userId}@placeholder.com`,
+    }));
+
+    return {
+      ...meetingDetail,
+      participants: participantsWithPlaceholderEmail,
+    };
+  }
 };

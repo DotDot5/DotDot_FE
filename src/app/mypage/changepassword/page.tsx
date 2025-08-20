@@ -2,32 +2,50 @@
 
 import MainLayout from '@/components/layout/MainLayout';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation'; // 👈 useRouter 임포트 (App Router)
-// import { useRouter } from 'next/router'; // 👈 Pages Router를 사용한다면 이 줄을 사용하세요.
+import { useRouter } from 'next/navigation';
+import { changePassword } from '@/api/user'; // ✨ API 호출 함수를 import합니다.
+import { Button } from '@/components/internal/ui/button'; // shadcn/ui Button 컴포넌트 import
+import { Input } from '@/components/internal/ui/input'; // shadcn/ui Input 컴포넌트 import
 
 export default function ChangePasswordPage() {
-  const router = useRouter(); // 👈 useRouter 훅 초기화
+  const router = useRouter();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
+    // ✨ async 키워드를 추가합니다.
     e.preventDefault();
+
+    // 1. 새 비밀번호와 새 비밀번호 확인이 일치하는지 검증
     if (newPassword !== confirmNewPassword) {
       alert('새 비밀번호가 일치하지 않습니다.');
       return;
     }
-    // 여기에 실제 비밀번호 변경 API 호출 로직을 추가하세요.
-    console.log('비밀번호 변경 시도:', { currentPassword, newPassword });
-    alert('비밀번호가 변경됐습니다.');
-    // 성공 시 홈으로 리다이렉션 또는 메시지 표시
-    // router.push('/'); // 예시: 변경 완료 후 홈으로 이동
-    router.back(); // 👈 변경 완료 또는 취소 후 이전 페이지로 돌아가기
+
+    // 2. 새 비밀번호와 현재 비밀번호가 동일한지 검증
+    if (currentPassword === newPassword) {
+      alert('새 비밀번호는 현재 비밀번호와 달라야 합니다.');
+      return;
+    }
+
+    try {
+      // 3. 비밀번호 변경 API 호출
+      await changePassword(currentPassword, newPassword);
+
+      alert('비밀번호가 성공적으로 변경되었습니다.');
+      router.back(); // 변경 완료 후 이전 페이지로 돌아가기
+    } catch (error) {
+      // 4. API 호출 실패 시 에러 처리
+      console.error('비밀번호 변경 실패:', error);
+      const errorMessage = error.response?.data?.message || '비밀번호 변경 중 오류가 발생했습니다.';
+      alert(errorMessage);
+    }
   };
 
   const handleCancel = () => {
-    router.back(); // 👈 취소 버튼 클릭 시 이전 페이지로 돌아가기
+    router.back();
   };
 
   return (
@@ -79,11 +97,9 @@ export default function ChangePasswordPage() {
               />
             </div>
             <div className="flex justify-between space-x-4">
-              {' '}
-              {/* 👈 버튼들을 나란히 배치하기 위한 flexbox 컨테이너 */}
               <button
-                type="button" // 👈 form 제출을 방지하기 위해 type을 button으로 설정
-                onClick={handleCancel} // 👈 취소 핸들러 연결
+                type="button"
+                onClick={handleCancel}
                 className="w-1/2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors duration-200"
               >
                 취소
