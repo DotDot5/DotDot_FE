@@ -21,6 +21,7 @@ export const signup = async (data: {
   name: string;
   email: string;
   password: string;
+  department: string;
   position: string;
 }): Promise<void> => {
   await axiosInstance.post<ApiResponse<void>>('/api/v1/auth/signup', data);
