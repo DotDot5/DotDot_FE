@@ -27,17 +27,17 @@ export default function LogoutConfirmModal({ isOpen, onClose, onConfirm }) {
         <div className="flex justify-end gap-4">
           <button
             type="button"
-            onClick={onClose}
-            className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-          >
-            취소
-          </button>
-          <button
-            type="button"
             onClick={onConfirm}
             className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           >
             로그아웃
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          >
+            취소
           </button>
         </div>
       </div>

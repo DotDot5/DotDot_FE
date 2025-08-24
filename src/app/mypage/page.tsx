@@ -1,7 +1,10 @@
+// src/app/mypage/page.jsx
+
 'use client';
 
 import MainLayout from '@/components/layout/MainLayout';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 import ProfileEditModal from './ProfileEditModal';
 import TermsModal from './TermsModal';
@@ -9,7 +12,13 @@ import PrivacyPolicyModal from './PrivacyPolicyModal';
 import WithdrawalConfirmModal from './WithdrawModal';
 import LogoutConfirmModal from './LogoutModal';
 
+// API 호출 함수들을 가져옵니다.
+import { getUserProfile, updateUserProfile } from '@/api/user'; // updateUserProfile 함수를 import합니다.
+import { logout } from '@/api/auth';
+import axiosInstance from '@/lib/axiosInstance';
+
 export default function MyPage() {
+  const router = useRouter();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
@@ -17,39 +26,82 @@ export default function MyPage() {
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const [profileData, setProfileData] = useState({
-    name: '정태윤',
-    email: 'abcd@dotdot.com',
-    department: '개발팀',
-    position: '학생',
+    name: '',
+    email: '',
+    department: '',
+    position: '',
   });
 
-  const handleSaveProfile = (updatedData) => {
-    console.log('프로필 저장:', updatedData);
-    setProfileData(updatedData);
-    setIsProfileModalOpen(false);
-    alert('프로필이 성공적으로 업데이트되었습니다!');
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const responseData = await getUserProfile();
+        setProfileData(responseData.data);
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+        alert('사용자 정보를 불러오지 못했습니다. 다시 로그인해주세요.');
+        await logout();
+        router.replace('/auth/login');
+      }
+    };
+    fetchProfile();
+  }, [router]);
+
+  const handleSaveProfile = async (updatedData) => {
+    // 함수를 비동기(async)로 만듭니다.
+    try {
+      // API 호출을 통해 백엔드 서버의 프로필 정보를 업데이트합니다.
+      const responseData = await updateUserProfile(updatedData);
+
+      // 서버에서 반환된 최신 데이터로 프런트엔드 상태를 업데이트합니다.
+      setProfileData(responseData.data);
+
+      setIsProfileModalOpen(false);
+      alert('프로필이 성공적으로 업데이트되었습니다!');
+    } catch (error) {
+      console.error('프로필 업데이트 실패:', error);
+      alert('프로필 업데이트 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    }
   };
 
-  const handleWithdrawalConfirm = () => {
-    // 실제 회원 탈퇴 로직 (API 호출 등)
-    console.log('회원 탈퇴 처리');
-    alert('회원 탈퇴가 완료되었습니다.');
-    setIsWithdrawalModalOpen(false);
-    // 탈퇴 후 리다이렉션 또는 추가 처리
+  const handleWithdrawalConfirm = async () => {
+    try {
+      // ✨ Change the URL to match the backend's path
+      await axiosInstance.delete('/api/v1/users/me/withdrawal');
+
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+
+      alert('회원 탈퇴가 완료되었습니다.');
+      setIsWithdrawalModalOpen(false);
+      router.replace('/auth/login');
+    } catch (error) {
+      console.error('회원 탈퇴 실패:', error);
+      alert('회원 탈퇴 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    }
   };
 
-  const handleLogoutConfirm = () => {
-    // 실제 로그아웃 로직 (API 호출, 토큰 삭제 등)
-    console.log('로그아웃 처리');
-    alert('성공적으로 로그아웃되었습니다.');
-    setIsLogoutModalOpen(false);
-    // 로그아웃 후 로그인 페이지로 리다이렉션 등
+  const handleLogoutConfirm = async () => {
+    try {
+      await logout();
+
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+
+      alert('성공적으로 로그아웃되었습니다.');
+      setIsLogoutModalOpen(false);
+
+      router.replace('/auth/login');
+    } catch (error) {
+      console.error('로그아웃 실패:', error);
+      alert('로그아웃에 실패했습니다. 다시 시도해 주세요.');
+    }
   };
 
   return (
     <MainLayout>
       <div className="min-h-screen bg-gray-100 p-6">
-        {/* 프로필 섹션 (이전과 동일) */}
+        {/* 프로필 섹션 */}
         <div className="bg-[#E3CD64] rounded-lg p-6 mb-6 flex items-center justify-between shadow-md">
           <div className="flex items-center">
             <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center text-4xl text-gray-600 mr-4 overflow-hidden">
@@ -86,7 +138,6 @@ export default function MyPage() {
 
         {/* 나머지 메뉴 목록 섹션 */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {/* 서비스 이용약관 버튼 */}
           <div
             className="flex justify-between items-center p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
             onClick={() => setIsTermsModalOpen(true)}
@@ -108,7 +159,6 @@ export default function MyPage() {
             </svg>
           </div>
 
-          {/* 개인정보처리방침 버튼 */}
           <div
             className="flex justify-between items-center p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
             onClick={() => setIsPrivacyModalOpen(true)}
@@ -130,9 +180,8 @@ export default function MyPage() {
             </svg>
           </div>
 
-          {/* 비밀번호 변경 버튼 - <a> 태그 사용 */}
           <a
-            href="/mypage/changepassword" // <-- 이동할 페이지 경로
+            href="/mypage/changepassword"
             className="flex justify-between items-center p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
           >
             <span className="text-gray-700">비밀번호 변경</span>
@@ -152,7 +201,6 @@ export default function MyPage() {
             </svg>
           </a>
 
-          {/* 회원탈퇴 버튼 */}
           <div
             className="flex justify-between items-center p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
             onClick={() => setIsWithdrawalModalOpen(true)}
@@ -174,13 +222,11 @@ export default function MyPage() {
             </svg>
           </div>
 
-          {/* 버전 (이전과 동일) */}
           <div className="flex justify-between items-center p-4 border-b border-gray-200">
             <span className="text-gray-700">버전</span>
             <span className="text-gray-500">1.0.0</span>
           </div>
 
-          {/* 로그아웃 버튼 */}
           <div
             className="flex justify-between items-center p-4 hover:bg-gray-50 cursor-pointer"
             onClick={() => setIsLogoutModalOpen(true)}

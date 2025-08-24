@@ -15,6 +15,7 @@ export interface TeamMember {
   name: string;
   profileImageUrl: string | null;
   role: string;
+  email: string;
 }
 export interface TeamDetail extends Team {
   notice: string;

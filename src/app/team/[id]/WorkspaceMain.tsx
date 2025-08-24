@@ -28,6 +28,7 @@ type Member = {
   name: string;
   profileImageUrl: string | null;
   role: string;
+  email: string;
 };
 
 export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings?: () => void }) {

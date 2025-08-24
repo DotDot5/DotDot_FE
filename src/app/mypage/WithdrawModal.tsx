@@ -31,17 +31,17 @@ export default function WithdrawalConfirmModal({ isOpen, onClose, onConfirm }) {
         <div className="flex justify-end gap-4">
           <button
             type="button"
-            onClick={onClose}
-            className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-          >
-            취소
-          </button>
-          <button
-            type="button"
             onClick={onConfirm}
             className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           >
             탈퇴하기
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          >
+            취소
           </button>
         </div>
       </div>

@@ -18,6 +18,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/internal/ui/input';
+import { getMeetingDetailWithParticipantEmails } from '@/api/meeting';
 
 interface AgendaItem {
   id: number;
@@ -31,6 +32,50 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
 }
+
+interface Participant {
+  id?: number;
+  name?: string;
+  email: string;
+  role?: string;
+  status?: 'accepted' | 'pending' | 'declined';
+  userId?: number;
+}
+
+// 참석자 정보를 표시하는 컴포넌트
+const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
+  if (!participants || participants.length === 0) {
+    return <div className="text-gray-500">참석자 정보가 없습니다.</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {participants.map((participant, index) => (
+        <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+            {participant.name
+              ? participant.name.charAt(0).toUpperCase()
+              : participant.email
+              ? participant.email.charAt(0).toUpperCase()
+              : '?'}
+          </div>
+          <div className="flex-1">
+            <div className="font-medium text-sm text-gray-900">
+              {participant.name || '이름 없음'}
+            </div>
+            <div className="text-xs text-gray-600">{participant.email || '이메일 없음'}</div>
+          </div>
+          {/* 참석자 역할이나 상태가 있다면 표시 */}
+          {participant.role && (
+            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+              {participant.role}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export default function MeetingDetailPage() {
   const params = useParams();
@@ -60,23 +105,77 @@ export default function MeetingDetailPage() {
   const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME'>('REALTIME');
   const [teamId, setTeamId] = useState<number>(0);
   const [newMessage, setNewMessage] = useState('');
-  const [participants, setParticipants] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
     { id: 2, type: 'ai', content: '궁금한 점이 있으시다면 말씀해주세요', timestamp: new Date() },
   ]);
 
-  // 회의 정보 조회
+  // 이메일 유효성 검증 함수
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // 참석자 정보 검증 및 경고 표시
+  const getParticipantValidationWarnings = () => {
+    const warnings = [];
+
+    participants.forEach((participant, index) => {
+      if (!participant.email) {
+        warnings.push(`참석자 ${index + 1}: 이메일이 없습니다.`);
+      } else if (!validateEmail(participant.email)) {
+        warnings.push(`참석자 ${index + 1}: 유효하지 않은 이메일 형식입니다.`);
+      }
+
+      if (!participant.name) {
+        warnings.push(`참석자 ${index + 1}: 이름이 없습니다.`);
+      }
+    });
+
+    return warnings;
+  };
+
+  // 참석자 정보 수정 기능
+  const handleUpdateParticipant = (index: number, field: keyof Participant, value: string) => {
+    const updatedParticipants = [...participants];
+    updatedParticipants[index] = {
+      ...updatedParticipants[index],
+      [field]: value,
+    };
+    setParticipants(updatedParticipants);
+  };
+
+  // 회의 정보 조회 (참석자 데이터 구조 확인 로깅 추가)
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data = await getMeetingDetail(meetingId);
+        const data = await getMeetingDetailWithParticipantEmails(meetingId);
+
+        // 참석자 데이터 구조 확인을 위한 로깅
+        console.log('전체 회의 데이터:', data);
+        console.log('참석자 데이터:', data.participants);
+        console.log('참석자 데이터 타입:', typeof data.participants);
+        console.log('참석자 배열 여부:', Array.isArray(data.participants));
+
+        // 각 참석자 객체 구조 확인
+        if (Array.isArray(data.participants) && data.participants.length > 0) {
+          console.log('첫 번째 참석자 구조:', data.participants[0]);
+          console.log('참석자 키들:', Object.keys(data.participants[0]));
+        }
+
         setMeetingTitle(data.title);
         setMeetingDate(formatKoreanDate(data.meetingAt));
         setMeetingDateISO(data.meetingAt);
         setParticipantCount(data.participants.length);
         setMeetingMethod(data.meetingMethod);
         setParticipants(data.participants);
+
+        // 참석자 정보 유효성 검증
+        const participantsWithEmail = data.participants.filter((p: Participant) => p.email);
+        console.log('이메일이 있는 참석자 수:', participantsWithEmail.length);
+        console.log('이메일이 있는 참석자들:', participantsWithEmail);
+
         setAgendaItems(
           data.agendas.map((a: { agenda: string; body: string }, i: number) => ({
             id: i + 1,
@@ -326,22 +425,38 @@ export default function MeetingDetailPage() {
 
   const handleEndMeeting = async () => {
     try {
+      // 참석자 이메일 정보 검증
+      console.log('회의 종료 시 참석자 정보:', participants);
+
+      const participantsWithEmail = participants.filter((p) => p.email && p.email.trim() !== '');
+      const participantsWithoutEmail = participants.filter(
+        (p) => !p.email || p.email.trim() === ''
+      );
+
+      console.log('이메일이 있는 참석자:', participantsWithEmail);
+      console.log('이메일이 없는 참석자:', participantsWithoutEmail);
+
+      if (participantsWithoutEmail.length > 0) {
+        console.warn('⚠️ 이메일 정보가 없는 참석자가 있습니다:', participantsWithoutEmail);
+      }
+
       await handleUpdateMeeting();
 
-      // ✨ 녹음 시간을 초 단위로 변환
+      // 녹음 시간을 초 단위로 변환
       const [hours, minutes, seconds] = recordingTime.split(':').map(Number);
       const totalDurationInSeconds = hours * 3600 + minutes * 60 + seconds;
 
       const file = meetingMethod === 'REALTIME' ? recordedBlob : uploadedFile;
 
       if (file) {
-        await uploadRecordingForTranscription(file, totalDurationInSeconds); // duration 값 전달
+        await uploadRecordingForTranscription(file, totalDurationInSeconds);
       }
 
       const query = new URLSearchParams({
         title: encodeURIComponent(meetingTitle),
         date: encodeURIComponent(meetingDate),
         participants: String(participantCount),
+        participantsData: encodeURIComponent(JSON.stringify(participants)),
       }).toString();
 
       router.push(`/meeting/${meetingId}/result?${query}`);
@@ -398,6 +513,16 @@ export default function MeetingDetailPage() {
                       <span>{participantCount}명 참석</span>
                     </div>
                   </div>
+
+                  {/* 참석자 목록 표시 (접을 수 있는 형태) */}
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                      참석자 목록 보기
+                    </summary>
+                    <div className="mt-2 max-w-md">
+                      <ParticipantsList participants={participants} />
+                    </div>
+                  </details>
                 </div>
                 <Button
                   onClick={handleEndMeeting}
