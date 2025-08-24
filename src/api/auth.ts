@@ -42,3 +42,22 @@ export const logout = async (): Promise<string> => {
   const res = await axiosInstance.post<ApiResponse<string>>('/api/v1/auth/logout');
   return res.data.data; // "로그아웃 완료"
 };
+
+// 비밀번호 재설정 이메일 발송 요청 API
+export const forgotPassword = async ({ email }: { email: string }): Promise<void> => {
+  await axiosInstance.post<ApiResponse<void>>('/api/v1/auth/forgot-password', { email });
+};
+
+// 새로운 비밀번호로 재설정하는 API
+export const resetPassword = async ({
+  token,
+  newPassword,
+}: {
+  token: string;
+  newPassword: string;
+}): Promise<void> => {
+  await axiosInstance.post<ApiResponse<void>>('/api/v1/auth/reset-password', {
+    token,
+    newPassword,
+  });
+};
