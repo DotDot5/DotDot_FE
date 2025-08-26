@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getMeetingDetail, updateMeetingDetail } from '@/api/meeting';
+import { getMeetingDetail, updateMeetingDetail, askChatbot, getChatHistory, endChatbot } from '@/api/meeting';
 import { Button } from '@/components/internal/ui/button';
 import { Card, CardContent } from '@/components/internal/ui/card';
 import {
@@ -16,6 +16,7 @@ import {
   Download,
   Upload,
   Loader2,
+  Bookmark,
 } from 'lucide-react';
 import { Input } from '@/components/internal/ui/input';
 import { getMeetingDetailWithParticipantEmails } from '@/api/meeting';
@@ -104,12 +105,16 @@ export default function MeetingDetailPage() {
   const [meetingNotes, setMeetingNotes] = useState('');
   const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME'>('REALTIME');
   const [teamId, setTeamId] = useState<number>(0);
-  const [newMessage, setNewMessage] = useState('');
+  // const [newMessage, setNewMessage] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
-    { id: 2, type: 'ai', content: '궁금한 점이 있으시다면 말씀해주세요', timestamp: new Date() },
-  ]);
+  // const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+  //   { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
+  //   { id: 2, type: 'ai', content: '궁금한 점이 있으시다면 말씀해주세요', timestamp: new Date() },
+  // ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isAsking, setIsAsking] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // 이메일 유효성 검증 함수
   const validateEmail = (email: string): boolean => {
@@ -185,12 +190,40 @@ export default function MeetingDetailPage() {
         );
         setMeetingNotes(data.note);
         setTeamId(data.teamId);
+
+        const history = await getChatHistory(meetingId);
+        const mapped: ChatMessage[] = history.map((h, idx) => ({
+          id: idx + 1,
+          type: h.role === 'assistant' ? 'ai' : 'user',
+          content: h.content,
+          timestamp: new Date(),
+        }));
+        setChatMessages((prev) =>
+          mapped.length
+            ? mapped
+            : [
+                { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
+                {
+                  id: 2,
+                  type: 'ai',
+                  content: '궁금한 점이 있으시다면 말씀해주세요',
+                  timestamp: new Date(),
+                },
+              ]
+        );
       } catch (err) {
-        console.error('회의 정보 불러오기 실패:', err);
+        console.error('회의 정보/히스토리 불러오기 실패:', err);
       }
     };
     fetchData();
   }, [meetingId]);
+
+  // 메시지가 바뀔 때마다 맨 아래로 스크롤
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
 
   // 녹음 시간 업데이트
   useEffect(() => {
@@ -410,18 +443,60 @@ export default function MeetingDetailPage() {
     }
   };
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const message: ChatMessage = {
-        id: chatMessages.length + 1,
-        type: 'user',
-        content: newMessage,
+  // const handleSendMessage = () => {
+  //   if (newMessage.trim()) {
+  //     const message: ChatMessage = {
+  //       id: chatMessages.length + 1,
+  //       type: 'user',
+  //       content: newMessage,
+  //       timestamp: new Date(),
+  //     };
+  //     setChatMessages([...chatMessages, message]);
+  //     setNewMessage('');
+  //   }
+  // };
+  const handleSendMessage = async () => {
+    const text = newMessage.trim();
+    if (!text || isAsking) return;
+
+    // 1) 사용자 메시지 즉시 반영
+    const userMsg: ChatMessage = {
+      id: chatMessages.length + 1,
+      type: 'user',
+      content: text,
+      timestamp: new Date(),
+    };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setNewMessage('');
+
+    try {
+      setIsAsking(true);
+      // 2) 서버에 질문
+      const { answer } = await askChatbot(meetingId, text);
+
+      // 3) AI 응답 반영
+      const aiMsg: ChatMessage = {
+        id: userMsg.id + 1,
+        type: 'ai',
+        content: answer,
         timestamp: new Date(),
       };
-      setChatMessages([...chatMessages, message]);
-      setNewMessage('');
+      setChatMessages((prev) => [...prev, aiMsg]);
+    } catch (e) {
+      console.error(e);
+      // 실패 안내
+      const errMsg: ChatMessage = {
+        id: chatMessages.length + 2,
+        type: 'ai',
+        content: '메시지 전송 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.',
+        timestamp: new Date(),
+      };
+      setChatMessages((prev) => [...prev, errMsg]);
+    } finally {
+      setIsAsking(false);
     }
   };
+
 
   const handleEndMeeting = async () => {
     try {
@@ -451,6 +526,8 @@ export default function MeetingDetailPage() {
       if (file) {
         await uploadRecordingForTranscription(file, totalDurationInSeconds);
       }
+
+      await endChatbot(meetingId); // Redis TTL 설정
 
       const query = new URLSearchParams({
         title: encodeURIComponent(meetingTitle),
@@ -499,42 +576,47 @@ export default function MeetingDetailPage() {
         {/* Fixed Header - 상단 고정 */}
         <div className="flex-shrink-0 p-6 bg-gray-50 border-b border-gray-200">
           <Card className="border border-gray-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold text-[#333333] mb-2">{meetingTitle}</h1>
-                  <div className="flex items-center gap-4 text-sm text-[#666666]">
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      <span>{meetingDate}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      <span>{participantCount}명 참석</span>
-                    </div>
-                  </div>
+            <CardContent className="p-6 relative">
+              {/* 회의 종료 버튼: 우상단 고정 */}
+              <Button
+                onClick={handleEndMeeting}
+                className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2 absolute right-6 top-6"
+                disabled={
+                  isTranscribing ||
+                  (meetingMethod === 'REALTIME' && !recordedBlob) ||
+                  (meetingMethod === 'RECORD' && !uploadedFile)
+                }
+              >
+                {isTranscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '회의 종료'}
+              </Button>
 
-                  {/* 참석자 목록 표시 (접을 수 있는 형태) */}
-                  <details className="mt-3">
-                    <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
-                      참석자 목록 보기
-                    </summary>
-                    <div className="mt-2 max-w-md">
-                      <ParticipantsList participants={participants} />
+              {/* 좌측 정보 영역: 버튼 자리만큼 패딩 */}
+              <div className="pr-28">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0">
+                    <h1 className="text-2xl font-bold text-[#333333] mb-2">{meetingTitle}</h1>
+                    <div className="flex items-center gap-4 text-sm text-[#666666]">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        <span>{meetingDate}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        <span>{participantCount}명 참석</span>
+                      </div>
                     </div>
-                  </details>
+
+                    {/* 참석자 목록 (내용이 길어져도 버튼은 고정) */}
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                        참석자 목록 보기
+                      </summary>
+                      <div className="mt-2 max-w-md max-h-48 overflow-y-auto">
+                        <ParticipantsList participants={participants} />
+                      </div>
+                    </details>
+                  </div>
                 </div>
-                <Button
-                  onClick={handleEndMeeting}
-                  className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2"
-                  disabled={
-                    isTranscribing ||
-                    (meetingMethod === 'REALTIME' && !recordedBlob) ||
-                    (meetingMethod === 'RECORD' && !uploadedFile)
-                  }
-                >
-                  {isTranscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '회의 종료'}
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -676,6 +758,17 @@ export default function MeetingDetailPage() {
                           >
                             <Square className="w-5 h-5" />
                           </Button>
+                          {/* 북마크 버튼 */}
+                          {/* <Button
+                            // onClick={handleAddBookmark}
+                            size="sm"
+                            variant="ghost"
+                            className="text-white hover:bg-[#333333] p-2"
+                            title="현재 시점 북마크"
+                            aria-label="북마크 추가"
+                          >
+                            <Bookmark className="w-5 h-5" />
+                          </Button> */}
                         </>
                       )}
 
@@ -743,7 +836,10 @@ export default function MeetingDetailPage() {
         </div>
 
         {/* Chat Messages - 독립 스크롤 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* <div
+          ref={chatScrollRef}
+          className="flex-1 overflow-y-auto p-4 space-y-3"
+        >
           {chatMessages.map((message) => (
             <div
               key={message.id}
@@ -756,10 +852,10 @@ export default function MeetingDetailPage() {
               <p className="text-sm">{message.content}</p>
             </div>
           ))}
-        </div>
+        </div> */}
 
         {/* Chat Input - 고정 */}
-        <div className="flex-shrink-0 p-4 border-t border-gray-200">
+        {/* <div className="flex-shrink-0 p-4 border-t border-gray-200">
           <div className="flex gap-2">
             <Input
               value={newMessage}
@@ -778,6 +874,56 @@ export default function MeetingDetailPage() {
               className="bg-[#3B82F6] hover:bg-[#3B82F6] text-white p-2"
             >
               <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </div> */}
+        {/* Chat Messages - 독립 스크롤 */}
+        <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          {chatMessages.map((message) => (
+            <div
+              key={message.id}
+              className={`p-3 rounded-lg max-w-[80%] ${
+                message.type === 'ai'
+                  ? 'bg-gray-100 text-[#333333]'
+                  : 'bg-[#3B82F6] text-white ml-auto'
+              }`}
+            >
+              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            </div>
+          ))}
+          {isAsking && (
+            <div className="p-3 rounded-lg max-w-[80%] bg-gray-100 text-[#333333]">
+              <p className="text-sm flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> 답변 생성 중...
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Chat Input */}
+        <div className="flex-shrink-0 p-4 border-t border-gray-200">
+          <div className="flex gap-2">
+            <Input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="메시지를 입력하세요"
+              className="flex-1"
+              disabled={isAsking}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSendMessage();
+              }}
+            />
+            <Button
+              onClick={handleSendMessage}
+              size="sm"
+              className="bg-[#3B82F6] hover:bg-[#3B82F6] text-white p-2"
+              disabled={isAsking || !newMessage.trim()}
+            >
+              {isAsking ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
             </Button>
           </div>
         </div>

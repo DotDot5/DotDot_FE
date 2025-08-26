@@ -192,3 +192,42 @@ export const getMeetingDetailWithParticipantEmails = async (
     };
   }
 };
+
+// ============================
+// Chatbot APIs
+// ============================
+export interface ChatHistoryItem {
+  role: 'user' | 'assistant';
+  content: string;
+}
+export interface ChatAskResponse {
+  answer: string;
+}
+
+// 질문 전송
+export const askChatbot = async (
+  meetingId: number,
+  question: string
+): Promise<ChatAskResponse> => {
+  const res = await axiosInstance.post<ApiResponse<{ answer: string }>>(
+    '/api/v1/chatbot/ask',
+    { meetingId, question }
+  );
+  return res.data.data;
+};
+
+// 히스토리 조회
+export const getChatHistory = async (meetingId: number): Promise<ChatHistoryItem[]> => {
+  const res = await axiosInstance.get<ApiResponse<ChatHistoryItem[]>>(
+    '/api/v1/chatbot/history',
+    { params: { meetingId } }
+  );
+  return res.data.data;
+};
+
+// 대화 종료(TTL 부여)
+export const endChatbot = async (meetingId: number): Promise<void> => {
+  await axiosInstance.post<ApiResponse<null>>('/api/v1/chatbot/end', null, {
+    params: { meetingId },
+  });
+};
