@@ -23,11 +23,7 @@ axiosInstance.interceptors.response.use(
     const errorCode = error.response?.data?.code;
 
     // 401 + USER-003 (refresh 대상) + 첫 시도일 때
-    if (
-      status === 401 &&
-      errorCode === 'USER-003' &&
-      !originalRequest._retry
-    ) {
+    if (status === 401 && errorCode === 'USER-003' && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {

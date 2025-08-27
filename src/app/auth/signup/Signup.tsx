@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { signup, login, checkEmail } from '@/api/auth';
+import TermsModal from '../../mypage/TermsModal';
 import { useRouter } from 'next/navigation';
 
 export default function Signup() {
@@ -13,6 +14,7 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [position, setPosition] = useState('');
+  const [department, setDepartment] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agree, setAgree] = useState(false);
@@ -24,6 +26,7 @@ export default function Signup() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
 
   useEffect(() => {
     const accessToken = localStorage.getItem('accessToken');
@@ -96,6 +99,13 @@ export default function Signup() {
       errors.push('이름을 입력해주세요.');
     }
 
+    if (!department.trim()) {
+      errors.push('부서를 입력해주세요.');
+    }
+    if (!position.trim()) {
+      errors.push('직책을 입력해주세요.');
+    }
+
     if (!agree) {
       errors.push('약관에 동의해주세요.');
     }
@@ -117,7 +127,7 @@ export default function Signup() {
     }
 
     try {
-      await signup({ name, email, password, position });
+      await signup({ name, email, password, position, department });
       const { accessToken, refreshToken } = await login({ email, password });
 
       localStorage.setItem('accessToken', accessToken);
@@ -246,6 +256,19 @@ export default function Signup() {
               />
             </div>
 
+            {/* 부서 */}
+            <div>
+              <label className="font-semibold text-xs">부서</label>
+              <input
+                type="text"
+                placeholder="부서를 입력해 주세요 ex)백엔드 개발팀"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="border rounded-[20px] h-9 px-3 w-full text-xs"
+                required
+              />
+            </div>
+
             {/* 직책 */}
             <div>
               <label className="font-semibold text-xs">직책</label>
@@ -255,6 +278,7 @@ export default function Signup() {
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
                 className="border rounded-[20px] h-9 px-3 w-full text-xs"
+                required
               />
             </div>
 
@@ -269,9 +293,15 @@ export default function Signup() {
                 />
                 <span className="text-xs">인증 약관 전체 동의</span>
               </label>
-              <span className="text-xs">보기 ▼</span>
+              {/* '보기' 버튼 클릭 시 모달 열기 */}
+              <button
+                type="button"
+                onClick={() => setIsTermsModalOpen(true)}
+                className="text-xs font-semibold hover:underline"
+              >
+                보기 ▼
+              </button>
             </div>
-
             {/* 에러 메시지 */}
             {error && <p className="text-red-500 text-xs text-center">{error}</p>}
 
@@ -297,7 +327,9 @@ export default function Signup() {
                 !email ||
                 !password ||
                 !confirmPassword ||
-                !name
+                !name ||
+                !department ||
+                !position
               }
             >
               회원가입
@@ -319,6 +351,11 @@ export default function Signup() {
           </div>
         </div>
       </div>
+      <TermsModal
+        isOpen={isTermsModalOpen}
+        onClose={() => setIsTermsModalOpen(false)}
+        title="이용약관"
+      />
     </main>
   );
 }
