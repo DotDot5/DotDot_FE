@@ -20,6 +20,18 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/internal/ui/input';
 import { getMeetingDetailWithParticipantEmails } from '@/api/meeting';
+import {
+  extractMeetingTasks,
+  startMeetingSummary,
+  getMeetingSummaryStatus,
+  createRecommendations,
+  getMeetingSttResult,
+  createTeamTask,
+} from '@/api/meeting';
+import type { MeetingParticipant, UpdateMeetingRequest } from '@/api/meeting';
+import { getTeamMembers } from '@/api/team';
+
+
 
 interface AgendaItem {
   id: number;
@@ -42,6 +54,8 @@ interface Participant {
   status?: 'accepted' | 'pending' | 'declined';
   userId?: number;
 }
+
+// const [postLabel, setPostLabel] = useState<string>('');
 
 // 참석자 정보를 표시하는 컴포넌트
 const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
@@ -115,6 +129,8 @@ export default function MeetingDetailPage() {
   const [newMessage, setNewMessage] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  const [postLabel, setPostLabel] = useState<string>('');
 
   // 이메일 유효성 검증 함수
   const validateEmail = (email: string): boolean => {
@@ -329,32 +345,15 @@ export default function MeetingDetailPage() {
   };
 
   const uploadRecordingForTranscription = async (file: Blob | File, duration: number) => {
-    setIsTranscribing(true);
+
     const formData = new FormData();
     formData.append('audio', file, `meeting_${meetingId}.webm`);
     formData.append('meetingId', String(meetingId));
     formData.append('duration', String(duration));
 
-    try {
-      // TODO: 백엔드 STT API 엔드포인트로 변경
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Transcription failed');
-      }
-
-      const result = await response.json();
-      console.log('Transcription Result:', result);
-      // TODO: 백엔드 응답을 기반으로 DB에 저장 또는 상태 업데이트 로직 추가
-    } catch (error) {
-      console.error('음성 분석 업로드 실패:', error);
-      alert('음성 분석 중 오류가 발생했습니다.');
-    } finally {
-      setIsTranscribing(false);
-    }
+    const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
+    if (!response.ok) throw new Error('Transcription failed');
+    return response.json(); // 필요하면 호출부에서 활용
   };
 
   // 녹음 파일 다운로드 함수
@@ -423,38 +422,40 @@ export default function MeetingDetailPage() {
     );
   };
 
+  
   const handleUpdateMeeting = async () => {
     try {
-      const updateData = {
+      // 화면 전용 participants → 서버 DTO로 변환
+      const normalizedParticipants: MeetingParticipant[] = participants
+        .filter((p) => typeof p.userId === 'number') // 필수값 보장
+        .map((p, idx) => ({
+          userId: p.userId as number,
+          part: p.role ?? 'member', // 서버의 part로 매핑
+          speakerIndex: (p as any).speakerIndex ?? idx, // 없으면 인덱스로 대체
+        }));
+
+      const updateData: UpdateMeetingRequest = {
         teamId,
         title: meetingTitle,
-        meetingAt: meetingDateISO,
-        meetingMethod,
+        meetingAt: meetingDateISO, // ISO 형식 유지
+        meetingMethod, // 'REALTIME' | 'RECORD'
         note: meetingNotes,
-        participants: participants,
+        participants: normalizedParticipants,
         agendas: agendaItems.map((item) => ({
           agenda: item.title,
           body: item.description,
         })),
       };
+
+      // 디버깅에 도움
+      // console.log('PUT /meetings payload', updateData);
+
       await updateMeetingDetail(meetingId, updateData);
-    } catch (error) {
-      console.error('회의 정보 수정 실패:', error);
+    } catch (error: any) {
+      console.error('회의 정보 수정 실패:', error?.response?.data ?? error);
     }
   };
 
-  // const handleSendMessage = () => {
-  //   if (newMessage.trim()) {
-  //     const message: ChatMessage = {
-  //       id: chatMessages.length + 1,
-  //       type: 'user',
-  //       content: newMessage,
-  //       timestamp: new Date(),
-  //     };
-  //     setChatMessages([...chatMessages, message]);
-  //     setNewMessage('');
-  //   }
-  // };
   const handleSendMessage = async () => {
     const text = newMessage.trim();
     if (!text || isAsking) return;
@@ -497,38 +498,120 @@ export default function MeetingDetailPage() {
     }
   };
 
-
   const handleEndMeeting = async () => {
     try {
-      // 참석자 이메일 정보 검증
-      console.log('회의 종료 시 참석자 정보:', participants);
+      // 전체 플로우 로딩 on
+      setIsTranscribing(true);
 
-      const participantsWithEmail = participants.filter((p) => p.email && p.email.trim() !== '');
-      const participantsWithoutEmail = participants.filter(
-        (p) => !p.email || p.email.trim() === ''
-      );
-
-      console.log('이메일이 있는 참석자:', participantsWithEmail);
-      console.log('이메일이 없는 참석자:', participantsWithoutEmail);
-
-      if (participantsWithoutEmail.length > 0) {
-        console.warn('⚠️ 이메일 정보가 없는 참석자가 있습니다:', participantsWithoutEmail);
-      }
-
+      // 0) 서버에 최신 회의 정보 저장
       await handleUpdateMeeting();
 
-      // 녹음 시간을 초 단위로 변환
-      const [hours, minutes, seconds] = recordingTime.split(':').map(Number);
-      const totalDurationInSeconds = hours * 3600 + minutes * 60 + seconds;
-
+      // 1) 업로드할 오디오 파악 및 길이 계산
+      const [h, m, s] = recordingTime.split(':').map(Number);
+      const totalDurationInSeconds = (h || 0) * 3600 + (m || 0) * 60 + (s || 0);
       const file = meetingMethod === 'REALTIME' ? recordedBlob : uploadedFile;
 
-      if (file) {
-        await uploadRecordingForTranscription(file, totalDurationInSeconds);
+      if (!file) {
+        alert('오디오가 없습니다. 녹음을 종료했거나 파일을 업로드해야 합니다.');
+        return;
       }
 
-      await endChatbot(meetingId); // Redis TTL 설정
+      // 2) STT 업로드 → STT 완료 대기
+      setPostLabel('음성 분석 업로드 중...');
+      await uploadRecordingForTranscription(file, totalDurationInSeconds);
 
+      setPostLabel('음성 인식 결과 대기 중...');
+      await waitForStt(meetingId); // getMeetingSttResult를 폴링하는 함수
+
+      // 3) 태스크 자동 추출(dryRun) → 초안(drafts) 저장
+      setPostLabel('태스크 자동 추출 중...');
+      const extractRes = await extractMeetingTasks(meetingId, {
+        dryRun: true,
+        overwrite: true,
+        includeAgendas: true,
+        language: 'ko',
+        defaultDueDays: 7,
+      });
+      // 1) 원본 응답을 통째로 확인
+      console.log('[extractRes raw]', JSON.stringify(extractRes, null, 2));
+
+      // 2) 필수 필드들이 유효한지 빠르게 테이블 체크
+      console.table(
+        (extractRes?.drafts ?? []).map((d) => ({
+          assigneeName: d.assigneeName,
+          title: d.title,
+          priority: d.priority,
+          due: d.due,
+          dueParseOk: !Number.isNaN(Date.parse(d.due ?? '')),
+        }))
+      );
+
+      // // 3) 멤버 매핑까지 미리 확인
+      // const members = await getTeamMembers(String(teamId));
+      // const nameToId = new Map(members.map((m) => [m.name.trim(), m.userId]));
+
+      setPostLabel('태스크 저장 중...');
+      if (extractRes?.drafts?.length) {
+        // 팀원 이름 → userId 매핑
+        const members = await getTeamMembers(String(teamId));
+        const nameToId = new Map(members.map((m) => [m.name, m.userId]));
+        // 임시 숫자: 오늘 + N일을 due로 사용
+        const TEMP_DUE_DAYS = 7; 
+        const makeTempDueISO = () => {
+          const d = new Date();
+          d.setDate(d.getDate() + TEMP_DUE_DAYS);
+          return d.toISOString();
+        };
+        const toPriority = (p: any) =>
+          p === 'HIGH' || p === 'LOW' || p === 'MEDIUM' ? p : 'MEDIUM';
+
+        // 초안 각각을 실태스크로 저장
+        const results = await Promise.allSettled(
+          extractRes.drafts.map((d) => {
+            const assigneeId = nameToId.get(d.assigneeName);
+            if (!assigneeId) {
+              // 담당자 매칭 실패 시 스킵(또는 기본 담당자 지정 로직으로 교체)
+              console.warn('담당자 매칭 실패, 스킵:', d.assigneeName, d.title);
+              return Promise.resolve();
+            }
+            return createTeamTask(teamId, {
+              title: d.title,
+              description: d.description,
+              assigneeId,
+              priority: toPriority(d.priority),
+              status: 'TODO',
+              due:
+                d.due && !Number.isNaN(Date.parse(d.due))
+                  ? new Date(d.due).toISOString()
+                  : makeTempDueISO(),
+              meetingId,
+            });
+          })
+        );
+
+        // 실패 로그(필요시)
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            console.error('태스크 생성 실패:', extractRes.drafts[i], r.reason);
+          }
+        });
+      }
+
+      // 4) 요약 생성 시작 → 완료까지 대기
+      setPostLabel('회의 요약 생성 시작...');
+      await startMeetingSummary(meetingId);
+
+      setPostLabel('회의 요약 생성 중...');
+      await waitForSummary(meetingId); // getMeetingSummaryStatus를 폴링하는 함수
+
+      // 5) 자료 추천
+      setPostLabel('자료 추천 생성 중...');
+      await createRecommendations(meetingId, 5);
+
+      // 6) 챗봇 세션 종료(TTL)
+      await endChatbot(meetingId);
+
+      // 7) 결과 페이지 이동
       const query = new URLSearchParams({
         title: encodeURIComponent(meetingTitle),
         date: encodeURIComponent(meetingDate),
@@ -537,26 +620,27 @@ export default function MeetingDetailPage() {
       }).toString();
 
       router.push(`/meeting/${meetingId}/result?${query}`);
-    } catch (err) {
-      console.error('회의 종료 중 오류:', err);
+    } catch (err: any) {
+      console.error('회의 종료 후처리 실패:', err);
+      alert(err?.message ?? '회의 종료 후처리 중 오류가 발생했습니다.');
+    } finally {
+      // 로딩 off & 상태 문구 초기화
+      setIsTranscribing(false);
+      setPostLabel('');
     }
   };
+
 
   const handleDeleteAgenda = (id: number) => {
     setAgendaItems(agendaItems.filter((item) => item.id !== id));
   };
 
-  // 회의 상태 텍스트 반환
   const getMeetingStatusText = () => {
     if (isTranscribing) {
-      return '음성 분석 요청 중...';
+      return postLabel || '처리 중...';
     }
-    if (meetingMethod === 'REALTIME' && isRecording) {
-      return '회의 진행 중';
-    }
-    if (meetingMethod === 'REALTIME' && isMeetingEnded) {
-      return '회의 녹음 종료';
-    }
+    if (meetingMethod === 'REALTIME' && isRecording) return '회의 진행 중';
+    if (meetingMethod === 'REALTIME' && isMeetingEnded) return '회의 녹음 종료';
     if (meetingMethod === 'RECORD' && uploadedFile) {
       return (
         <>
@@ -567,6 +651,32 @@ export default function MeetingDetailPage() {
       );
     }
     return '회의 시작 전';
+  };
+  // STT 결과가 준비될 때까지 폴링 (최대 2분, 2초 간격)
+  const waitForStt = async (meetingId: number, timeoutMs = 120000, intervalMs = 2000) => {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      try {
+        const stt = await getMeetingSttResult(meetingId);
+        if (stt?.transcript && stt.transcript.trim().length > 0) return stt;
+      } catch (_) {
+        // 아직 준비 안 됨(404/empty 등) -> 무시하고 재시도
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    throw new Error('STT 결과 대기 시간 초과');
+  };
+
+  // 요약 상태가 COMPLETED/FAILED가 될 때까지 폴링 (최대 3분, 2초 간격)
+  const waitForSummary = async (meetingId: number, timeoutMs = 180000, intervalMs = 2000) => {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      const s = await getMeetingSummaryStatus(meetingId);
+      if (s.status === 'COMPLETED') return s;
+      if (s.status === 'FAILED') throw new Error('요약 생성에 실패했습니다.');
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    throw new Error('요약 상태 대기 시간 초과');
   };
 
   return (
@@ -835,48 +945,6 @@ export default function MeetingDetailPage() {
           </div>
         </div>
 
-        {/* Chat Messages - 독립 스크롤 */}
-        {/* <div
-          ref={chatScrollRef}
-          className="flex-1 overflow-y-auto p-4 space-y-3"
-        >
-          {chatMessages.map((message) => (
-            <div
-              key={message.id}
-              className={`p-3 rounded-lg max-w-[80%] ${
-                message.type === 'ai'
-                  ? 'bg-gray-100 text-[#333333]'
-                  : 'bg-[#3B82F6] text-white ml-auto'
-              }`}
-            >
-              <p className="text-sm">{message.content}</p>
-            </div>
-          ))}
-        </div> */}
-
-        {/* Chat Input - 고정 */}
-        {/* <div className="flex-shrink-0 p-4 border-t border-gray-200">
-          <div className="flex gap-2">
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="메시지를 입력하세요"
-              className="flex-1"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSendMessage();
-                }
-              }}
-            />
-            <Button
-              onClick={handleSendMessage}
-              size="sm"
-              className="bg-[#3B82F6] hover:bg-[#3B82F6] text-white p-2"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-        </div> */}
         {/* Chat Messages - 독립 스크롤 */}
         <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
           {chatMessages.map((message) => (
