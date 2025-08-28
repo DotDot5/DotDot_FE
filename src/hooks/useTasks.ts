@@ -1,31 +1,40 @@
-// src/hooks/useTasks.ts
 import useSWR from 'swr';
+import {
+  listTeamTasks,
+  type ListTeamTasksParams,
+  type TaskItem,
+  type TaskSummary,
+  type TaskPage,
+} from '@/api/tasks';
 
-import { TaskItem, listTeamTasks, createTask, updateTask, removeTask } from '@/api/tasks';
+type UseTasksResult = {
+  items: TaskItem[] | undefined;
+  summary: TaskSummary | undefined;
+  page: TaskPage | undefined;
+  isLoading: boolean;
+  error: any;
+};
 
-export function useTasks(teamId?: string | number) {
-  const swr = useSWR<TaskItem[]>(teamId ? ['tasks', teamId] : null, () => listTeamTasks(teamId!));
+export function useTasks(teamId?: string | number, options?: ListTeamTasksParams): UseTasksResult {
+  const key = teamId
+    ? [
+        'tasks',
+        String(teamId),
+        options?.meetingId ?? null,
+        options?.date ?? null,
+        options?.page ?? 0,
+        options?.size ?? 10,
+        options?.sort ?? '',
+      ]
+    : null;
 
-  async function addTask(payload: Omit<TaskItem, 'id'>) {
-    if (!teamId) return;
-    const created = await createTask(teamId, payload);
-    swr.mutate((prev) => (prev ? [created, ...prev] : [created]), false);
-    swr.mutate();
-  }
+  const { data, isLoading, error } = useSWR(key, () => listTeamTasks(teamId!, options ?? {}));
 
-  async function patchTask(taskId: string | number, patch: Partial<Omit<TaskItem, 'id'>>) {
-    if (!teamId) return;
-    const updated = await updateTask(teamId, taskId, patch);
-    swr.mutate((prev) => prev?.map((t) => (t.id === taskId ? updated : t)), false);
-    swr.mutate();
-  }
-
-  async function deleteTask(taskId: string | number) {
-    if (!teamId) return;
-    await removeTask(teamId, taskId);
-    swr.mutate((prev) => prev?.filter((t) => t.id !== taskId), false);
-    swr.mutate();
-  }
-
-  return { ...swr, addTask, patchTask, deleteTask };
+  return {
+    items: data?.items,
+    summary: data?.summary,
+    page: data?.page,
+    isLoading,
+    error,
+  };
 }

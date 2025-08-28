@@ -201,7 +201,12 @@ export default function MeetingPage() {
   const teamIdQP = sp.get('teamId') ?? undefined;
   const teamId = teamIdQP ?? (detail ? String(detail.teamId) : undefined);
 
-  const { data: tasks, isLoading: loadingTasks } = useTasks(teamId);
+  const meetingDateYMD = detail?.meetingAt ? detail.meetingAt.slice(0, 10) : undefined;
+  const {
+    items: taskItems = [],
+    summary: taskSummary,
+    isLoading: loadingTasks,
+  } = useTasks(teamId, { meetingId, date: meetingDateYMD, page: 0, size: 10, sort: 'status,asc' });
 
   useEffect(() => {
     console.log('[dbg] summary=', summary);
@@ -229,13 +234,6 @@ export default function MeetingPage() {
     [detail, participants.length]
   );
 
-  const taskList = useMemo(() => {
-    if (Array.isArray(tasks)) return tasks;
-    if (tasks && Array.isArray((tasks as any).data)) return (tasks as any).data;
-    if (tasks && !Array.isArray(tasks)) return [tasks as any]; // 요소 1개만 객체로 오는 경우
-    return [];
-  }, [tasks]);
-
   const recList = useMemo(() => {
     if (Array.isArray(recs)) return recs;
     if (recs && Array.isArray((recs as any).data)) return (recs as any).data;
@@ -248,21 +246,17 @@ export default function MeetingPage() {
   }, [summary]);
 
   // PDF/이메일 HTML 생성
-  const createPDFHtml = (selectedSections: {
-    summary: boolean;
-    todos: boolean;
-    recommendations: boolean;
-  }) => {
+  const createPDFHtml = (selectedSections: SectionSelection) => {
     const summaryHtml = summaryText ? `<p>${summaryText}</p>` : '';
 
     const todosHtml =
-      taskList
+      taskItems
         .map(
           (t, idx) => `
         <div class="todo-item">
-          <h3>${idx + 1}. ${t.important ? '[중요] ' : ''}${t.title}</h3>
-          <p><strong>담당자:</strong> ${t.assigneeName ?? '-'}</p>
-          ${t.dueDate ? `<p><strong>마감일:</strong> ${t.dueDate.slice(0, 10)}</p>` : ''}
+          <h3>${idx + 1}. ${['높음', '보통', '낮음'].includes(t.priorityLabel ?? '') ? '[중요] ' : ''}${t.title}</h3>
+       <p><strong>담당자:</strong> ${t.assigneeName ?? '-'}</p>
+       ${t.due ? `<p><strong>마감일:</strong> ${t.due.slice(0, 10)}</p>` : ''}
         </div>
       `
         )
@@ -383,7 +377,7 @@ export default function MeetingPage() {
           <span>👥 {meetingData.participantCount}명 참석</span>
         </div>
 
-        <SummarySection summary={summary?.summary ?? ''} loading={loadingSummary} />
+        <SummarySection summary={summaryText} loading={loadingSummary} />
 
         <section className="mb-6">
           <div className="flex justify-between items-center mb-4">
@@ -395,17 +389,17 @@ export default function MeetingPage() {
           {showTodos && (
             <div className="space-y-4">
               {loadingTasks && <div className="text-sm text-gray-500">할 일 불러오는 중...</div>}
-              {!loadingTasks && taskList.length === 0 && (
+              {!loadingTasks && taskItems.length === 0 && (
                 <div className="text-sm text-gray-500">등록된 작업이 없습니다.</div>
               )}
               {!loadingTasks &&
-                taskList.map((t, idx) => (
+                taskItems.map((t, idx) => (
                   <TodoItem
-                    key={String(t.id ?? idx)}
+                    key={String(t.taskId ?? idx)}
                     label={t.title}
                     assignee={t.assigneeName ?? '-'}
-                    dueDate={t.dueDate ? t.dueDate.slice(0, 10) : undefined}
-                    important={t.important}
+                    dueDate={t.due ? t.due.slice(0, 10) : undefined}
+                    important={['높음', '보통', '낮음'].includes(t.priorityLabel ?? '')}
                   />
                 ))}
             </div>

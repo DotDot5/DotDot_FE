@@ -1,50 +1,64 @@
 import axiosInstance from '@/lib/axiosInstance';
 
-type ApiResponse<T> = { data: T; message?: string; status: number };
-
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
-
 export interface TaskItem {
-  id: string | number;
+  taskId: number;
+  teamId: number;
+  meetingId: number;
   title: string;
-  assigneeName: string;
-  assigneeEmail?: string;
-  dueDate?: string; // ISO 문자열
-  important?: boolean;
-  status?: TaskStatus;
+  description?: string;
+  assigneeUserId?: number;
+  assigneeName?: string;
+  assigneeProfileImageUrl?: string;
+  priorityLabel?: string; // '높음' | '보통' | '낮음'
+  statusLabel?: string; // '대기' | '진행' | '완료'
+  due?: string; // ISO
 }
 
-export const listTeamTasks = async (teamId: string | number): Promise<TaskItem[]> => {
-  const res = await axiosInstance.get<ApiResponse<TaskItem[]>>(`/api/v1/teams/${teamId}/tasks`);
-  return res.data.data;
+export interface TaskSummary {
+  todo: number;
+  processing: number;
+  done: number;
+}
+
+export interface TaskPage {
+  number: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface TaskListPayload {
+  items: TaskItem[];
+  summary: TaskSummary;
+  page: TaskPage;
+}
+
+export interface TaskListResponse {
+  status: string;
+  timestamp: string;
+  data: TaskListPayload;
+}
+
+export type ListTeamTasksParams = {
+  date?: string; // 'YYYY-MM-DD'
+  meetingId?: number; // 현재 회의 ID
+  page?: number;
+  size?: number;
+  sort?: string; // 'status,asc' | 'priority,desc' 등
 };
 
-export const createTask = async (
+export async function listTeamTasks(
   teamId: string | number,
-  payload: Omit<TaskItem, 'id'>
-): Promise<TaskItem> => {
-  const res = await axiosInstance.post<ApiResponse<TaskItem>>(
-    `/api/v1/teams/${teamId}/tasks`,
-    payload
-  );
-  return res.data.data;
-};
-
-export const updateTask = async (
-  teamId: string | number,
-  taskId: string | number,
-  patch: Partial<Omit<TaskItem, 'id'>>
-): Promise<TaskItem> => {
-  const res = await axiosInstance.put<ApiResponse<TaskItem>>(
-    `/api/v1/teams/${teamId}/tasks/${taskId}`,
-    patch
-  );
-  return res.data.data;
-};
-
-export const removeTask = async (
-  teamId: string | number,
-  taskId: string | number
-): Promise<void> => {
-  await axiosInstance.delete<ApiResponse<void>>(`/api/v1/teams/${teamId}/tasks/${taskId}`);
-};
+  params: ListTeamTasksParams
+): Promise<TaskListPayload> {
+  const res = await axiosInstance.get<TaskListResponse>(`/api/v1/teams/${teamId}/tasks`, {
+    params,
+  });
+  const body = res.data?.data ?? {
+    items: [],
+    summary: { todo: 0, processing: 0, done: 0 },
+    page: { number: 0, size: 10, totalElements: 0, totalPages: 0 },
+  };
+  const items = Array.isArray(body.items) ? body.items : [];
+  return { ...body, items };
+}
