@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation'; // useRouter 대신 useParams 사용
 import { getMeetingDetail, getMeetingSttResult, MeetingSttResultResponse } from '@/api/meeting'; // getMeetingSttResult와 MeetingSttResultResponse 임포트
 import SummarySection from '@/components/SummarySection';
-import ResourcesSection from '@/components/RecommandSection';
+import { useMeetingSummary, useMeetingRecommendations } from '@/hooks/useMeeting';
+import RecommandSection from '@/components/RecommandSection';
 
 // MeetingDetailResponse 인터페이스가 정의되어 있지 않다면 추가
 // 예시:
@@ -37,6 +38,19 @@ export default function MeetingDetailPage() {
   const [sttResult, setSttResult] = useState<MeetingSttResultResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { data: summary, isLoading: loadingSummary } = useMeetingSummary(meetingId);
+  const { data: recs, isLoading: loadingRecs } = useMeetingRecommendations(meetingId);
+
+  const recList = useMemo(() => {
+    if (Array.isArray(recs)) return recs;
+    if (recs && Array.isArray((recs as any).data)) return (recs as any).data;
+    if (recs && !Array.isArray(recs)) return [recs as any]; // 요소 1개만 객체로 오는 경우
+    return [];
+  }, [recs]);
+
+  const summaryText = useMemo(() => {
+    return (summary as any)?.summary ?? (summary as any)?.data?.summary ?? '';
+  }, [summary]);
 
   useEffect(() => {
     if (isNaN(meetingId)) {
@@ -194,8 +208,8 @@ export default function MeetingDetailPage() {
       {/* 요약 및 자료 */}
       <div className="w-1/3 p-6 overflow-y-auto bg-[#f7f7f7]">
         <div className="space-y-6">
-          <SummarySection />
-          <ResourcesSection />
+          <SummarySection summary={summaryText} loading={loadingSummary} />
+          <RecommandSection items={recList} loading={loadingRecs} />
         </div>
       </div>
     </div>
