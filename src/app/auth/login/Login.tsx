@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { login } from '@/api/auth';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function Login() {
   const router = useRouter();
@@ -96,7 +97,11 @@ export default function Login() {
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
           {/* 링크 */}
-          <div className="text-sm text-right text-[#666666]">아이디 찾기 | 비밀번호 찾기</div>
+          <div className="text-sm text-right text-[#666666]">
+            <Link href="/auth/forgot-password" className="hover:underline cursor-pointer">
+              비밀번호 찾기
+            </Link>
+          </div>
 
           {/* 로그인 버튼 */}
           <button

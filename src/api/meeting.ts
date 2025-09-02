@@ -210,6 +210,7 @@ export const getMeetingDetailWithParticipantEmails = async (
   }
 };
 
+
 export const getMeetingSummary = async (meetingId: number): Promise<MeetingSummaryResponse> => {
   const res = await axiosInstance.get<MeetingSummaryResponse>(
     `/api/v1/meetings/${meetingId}/summary`
@@ -236,3 +237,139 @@ export const getMeetingRecommendations = async (meetingId: number) => {
     return Array.isArray(d2) ? d2 : d2 ? [d2] : [];
   }
 };
+
+// ============================
+// Chatbot APIs
+// ============================
+export interface ChatHistoryItem {
+  role: 'user' | 'assistant';
+  content: string;
+}
+export interface ChatAskResponse {
+  answer: string;
+}
+
+// 질문 전송
+export const askChatbot = async (meetingId: number, question: string): Promise<ChatAskResponse> => {
+  const res = await axiosInstance.post<ApiResponse<{ answer: string }>>('/api/v1/chatbot/ask', {
+    meetingId,
+    question,
+  });
+  return res.data.data;
+};
+
+// 히스토리 조회
+export const getChatHistory = async (meetingId: number): Promise<ChatHistoryItem[]> => {
+  const res = await axiosInstance.get<ApiResponse<ChatHistoryItem[]>>('/api/v1/chatbot/history', {
+    params: { meetingId },
+  });
+  return res.data.data;
+};
+
+// 대화 종료(TTL 부여)
+export const endChatbot = async (meetingId: number): Promise<void> => {
+  await axiosInstance.post<ApiResponse<null>>('/api/v1/chatbot/end', null, {
+    params: { meetingId },
+  });
+};
+
+export type SummaryJobStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+
+export interface SummaryStatusData {
+  meetingId: number;
+  status: SummaryJobStatus;
+  summary?: string;
+  updatedAt?: string;
+}
+
+// export interface TaskExtractRequest {
+//   dryRun: boolean;
+//   overwrite: boolean;
+//   includeAgendas: boolean;
+//   language: string; // 'ko'
+//   defaultDueDays: number; // 7
+// }
+
+// // 태스크 자동 추출
+// export const extractMeetingTasks = async (
+//   meetingId: number,
+//   payload: TaskExtractRequest
+// ): Promise<void> => {
+//   // 스웨거 경로: POST /api/v1/{meetingId}/tasks/extract
+//   await axiosInstance.post<ApiResponse<unknown>>(`/api/v1/${meetingId}/tasks/extract`, payload);
+// };
+export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
+export interface TaskExtractRequest {
+  dryRun: boolean; // true: 생성하지 않고 초안(drafts)만 받음
+  overwrite: boolean; // true
+  includeAgendas: boolean; // true
+  language: string; // 'ko'
+  defaultDueDays: number; // 7
+}
+export interface TaskDraft {
+  assigneeName: string;
+  title: string;
+  description: string;
+  due: string; // ISO string
+  priority: TaskPriority | string;
+}
+export interface TaskExtractResponse {
+  meetingId: number;
+  created: number;
+  skipped: number;
+  drafts: TaskDraft[];
+}
+export const extractMeetingTasks = async (
+  meetingId: number,
+  payload: TaskExtractRequest
+): Promise<TaskExtractResponse> => {
+  const res = await axiosInstance.post<ApiResponse<TaskExtractResponse>>(
+    `/api/v1/${meetingId}/tasks/extract`,
+    payload
+  );
+  return res.data.data;
+};
+export type TaskStatus = 'TODO' | 'PROCESSING' | 'DONE';
+export interface CreateTaskRequest {
+  title: string;
+  description: string;
+  assigneeId: number; // 사용자 ID
+  priority: TaskPriority;
+  status: TaskStatus;
+  due: string; // ISO
+  meetingId: number;
+}
+export const createTeamTask = async (teamId: number, payload: CreateTaskRequest): Promise<void> => {
+  await axiosInstance.post<ApiResponse<unknown>>(`/api/v1/teams/${teamId}/tasks`, payload);
+};
+
+// 요약 생성 시작
+export const startMeetingSummary = async (
+  meetingId: number
+): Promise<{ meetingId: number; summary?: string }> => {
+  // 스웨거 경로: POST /api/v1/meetings/{meetingId}/summarize
+  const res = await axiosInstance.post<ApiResponse<{ meetingId: number; summary?: string }>>(
+    `/api/v1/meetings/${meetingId}/summarize`
+  );
+  return res.data.data;
+};
+
+// 요약 상태 조회
+export const getMeetingSummaryStatus = async (meetingId: number): Promise<SummaryStatusData> => {
+  // 스웨거 경로: GET /api/v1/meetings/{meetingId}/summary/status
+  const res = await axiosInstance.get<ApiResponse<SummaryStatusData>>(
+    `/api/v1/meetings/${meetingId}/summary/status`
+  );
+  return res.data.data;
+};
+
+// 자료 추천
+export const createRecommendations = async (meetingId: number, limit = 5): Promise<void> => {
+  // 스웨거 경로: POST /api/v1/meetings/{meetingId}/recommendations?limit=5
+  await axiosInstance.post<ApiResponse<unknown>>(
+    `/api/v1/meetings/${meetingId}/recommendations`,
+    null,
+    { params: { limit } }
+  );
+};
+
