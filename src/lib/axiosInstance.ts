@@ -11,6 +11,19 @@ axiosInstance.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  const auth = (config.headers?.Authorization || config.headers?.authorization) as
+    | string
+    | undefined;
+  const masked = auth ? auth.slice(0, 12) + '…' + auth.slice(-6) : 'none';
+  console.log(
+    '[dbg][REQ]',
+    config.method?.toUpperCase(),
+    config.baseURL,
+    config.url,
+    'Authorization=',
+    masked
+  );
   return config;
 });
 

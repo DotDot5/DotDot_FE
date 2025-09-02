@@ -85,6 +85,23 @@ export interface MeetingSttResultResponse {
   transcript: string;
 }
 
+export interface MeetingSummaryResponse {
+  meetingId: number;
+  summary: string;
+}
+
+export interface RecommendationItem {
+  title: string;
+  url: string;
+  description: string;
+}
+
+export interface RecommendationResponse {
+  status: string;
+  timestamp: string;
+  data: RecommendationItem[] | RecommendationItem;
+}
+
 // 회의 목록 조회
 export const getMeetings = async (
   teamId: string,
@@ -190,6 +207,34 @@ export const getMeetingDetailWithParticipantEmails = async (
       ...meetingDetail,
       participants: participantsWithPlaceholderEmail,
     };
+  }
+};
+
+
+export const getMeetingSummary = async (meetingId: number): Promise<MeetingSummaryResponse> => {
+  const res = await axiosInstance.get<MeetingSummaryResponse>(
+    `/api/v1/meetings/${meetingId}/summary`
+  );
+  return res.data;
+};
+
+export const getMeetingRecommendations = async (meetingId: number) => {
+  const params = { meetingId }; // ← 쿼리도 같이 보냄
+
+  try {
+    const res = await axiosInstance.get(`/api/v1/meetings/${meetingId}/recommendations`, {
+      params,
+    });
+    // 응답 정규화 (배열/단일객체 모두 대응)
+    const d = (res.data && res.data.data) ?? res.data;
+    return Array.isArray(d) ? d : d ? [d] : [];
+  } catch (e) {
+    // 일부 환경은 오탈자 경로 사용 → fallback
+    const res2 = await axiosInstance.get(`/api/v1/meetings/${meetingId}/recommandations`, {
+      params,
+    });
+    const d2 = (res2.data && res2.data.data) ?? res2.data;
+    return Array.isArray(d2) ? d2 : d2 ? [d2] : [];
   }
 };
 
@@ -327,3 +372,4 @@ export const createRecommendations = async (meetingId: number, limit = 5): Promi
     { params: { limit } }
   );
 };
+
