@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { getMeetingDetail, getMeetingSttResult, MeetingSttResultResponse } from '@/api/meeting';
 import SummarySection from '@/components/SummarySection';
 import ResourcesSection from '@/components/RecommandSection';
 import EnhancedAudioPlayer, { AudioPlayerHandle } from '@/components/EnhancedAudioPlayer';
 import ScriptTranscript from '@/components/ScriptTranscript';
+import { useMeetingSummary, useMeetingRecommendations } from '@/hooks/useMeeting';
+import RecommandSection from '@/components/RecommandSection';
 
 interface AgendaItem {
   agenda: string;
@@ -48,6 +50,20 @@ export default function MeetingDetailPage() {
 
   // EnhancedAudioPlayer의 함수를 호출하기 위한 ref 생성
   const audioPlayerRef = useRef<AudioPlayerHandle>(null);
+
+  const { data: summary, isLoading: loadingSummary } = useMeetingSummary(meetingId);
+  const { data: recs, isLoading: loadingRecs } = useMeetingRecommendations(meetingId);
+
+  const recList = useMemo(() => {
+    if (Array.isArray(recs)) return recs;
+    if (recs && Array.isArray((recs as any).data)) return (recs as any).data;
+    if (recs && !Array.isArray(recs)) return [recs as any]; // 요소 1개만 객체로 오는 경우
+    return [];
+  }, [recs]);
+
+  const summaryText = useMemo(() => {
+    return (summary as any)?.summary ?? (summary as any)?.data?.summary ?? '';
+  }, [summary]);
 
   useEffect(() => {
     if (isNaN(meetingId)) {
@@ -227,8 +243,8 @@ export default function MeetingDetailPage() {
       {/* 오른쪽 영역: 요약 및 자료 */}
       <div className="w-1/3 p-6 overflow-y-auto bg-[#f7f7f7]">
         <div className="space-y-6">
-          <SummarySection />
-          <ResourcesSection />
+          <SummarySection summary={summaryText} loading={loadingSummary} />
+          <RecommandSection items={recList} loading={loadingRecs} />
         </div>
       </div>
     </div>

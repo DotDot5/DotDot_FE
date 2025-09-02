@@ -11,6 +11,19 @@ axiosInstance.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  const auth = (config.headers?.Authorization || config.headers?.authorization) as
+    | string
+    | undefined;
+  const masked = auth ? auth.slice(0, 12) + '…' + auth.slice(-6) : 'none';
+  console.log(
+    '[dbg][REQ]',
+    config.method?.toUpperCase(),
+    config.baseURL,
+    config.url,
+    'Authorization=',
+    masked
+  );
   return config;
 });
 
@@ -23,11 +36,7 @@ axiosInstance.interceptors.response.use(
     const errorCode = error.response?.data?.code;
 
     // 401 + USER-003 (refresh 대상) + 첫 시도일 때
-    if (
-      status === 401 &&
-      errorCode === 'USER-003' &&
-      !originalRequest._retry
-    ) {
+    if (status === 401 && errorCode === 'USER-003' && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
