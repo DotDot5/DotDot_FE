@@ -43,7 +43,7 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
     queryClient.invalidateQueries({ queryKey: ['pastMeetings', teamId] });
     onRefreshMeetings?.(); // 부모 컴포넌트의 갱신 함수도 호출
   };
-
+  
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
@@ -76,6 +76,8 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
     const days = ['일', '월', '화', '수', '목', '금', '토'];
     return `${date.getMonth() + 1}.${date.getDate()}(${days[date.getDay()]})`;
   };
+  const PAST_LIMIT = 6;
+  const visiblePastMeetings = pastMeetings.slice(0, PAST_LIMIT);
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -318,7 +320,7 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
               </div>
             ) : (
               <p
-                className="text-[#333333] text-sm leading-relaxed cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
+                className="text-[#333333] text-sm leading-relaxed cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors whitespace-pre-line whitespace-pre-wrap break-words"
                 onClick={handleNoticeEdit}
               >
                 {noticeText.trim() === '' ? (
@@ -421,7 +423,7 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 overflow-y-auto max-h-[520px] pr-1">
               {upcomingMeetings.length === 0 ? (
                 <p className="text-sm text-[#666666]">예정된 회의가 없습니다.</p>
               ) : (
@@ -459,22 +461,36 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
                 </Button>
               </div>
             </CardHeader>
+
             <CardContent className="space-y-3">
               {pastMeetings.length === 0 ? (
                 <p className="text-sm text-gray-500">지난 회의록이 없습니다.</p>
               ) : (
-                pastMeetings.map((meeting) => (
-                  <div
-                    key={meeting.meetingId}
-                    onClick={() => router.push(`/team/records/${meeting.meetingId}`)}
-                    className="p-3 bg-white rounded-xl border border-gray-200"
-                  >
-                    <span className="text-sm text-[#666666] mr-2">
-                      {formatDateWithDay(meeting.meetingAt)}
-                    </span>
-                    <span className="text-[#333333] font-medium">{meeting.title}</span>
-                  </div>
-                ))
+                <>
+                  {visiblePastMeetings.map((meeting) => (
+                    <div
+                      key={meeting.meetingId}
+                      onClick={() => router.push(`/team/records/${meeting.meetingId}`)}
+                      className="p-3 bg-white rounded-xl border border-gray-200"
+                    >
+                      <span className="text-sm text-[#666666] mr-2">
+                        {formatDateWithDay(meeting.meetingAt)}
+                      </span>
+                      <span className="text-[#333333] font-medium">{meeting.title}</span>
+                    </div>
+                  ))}
+
+                  {/* 남은 개수 안내 + 더보기(옵션) */}
+                  {/* {pastMeetings.length > PAST_LIMIT && (
+          <Button
+            variant="outline"
+            onClick={handleViewAllMeetings}
+            className="w-full text-[#666666] border-gray-300 hover:bg-gray-100"
+          >
+            지난 회의록 {pastMeetings.length - PAST_LIMIT}개 더 보기
+          </Button>
+        )} */}
+                </>
               )}
             </CardContent>
           </Card>
