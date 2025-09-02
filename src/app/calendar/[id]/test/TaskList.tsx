@@ -1,17 +1,29 @@
+// src/components/TaskList.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // useEffect 임포트
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
-import { Task, TeamMemberResponse } from '@/types/task';
 
 const formatDateWithoutFns = (date: Date | null): string => {
-  if (!date) return '';
+  if (!date) {
+    return '';
+  }
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string;
+  assignee: string;
+  status: '완료' | '대기' | '진행';
+  priority: '낮음' | '보통' | '높음';
+  dueDate?: string;
+}
 
 type TaskFilterMode = 'DATE' | 'MONTH';
 
@@ -26,9 +38,9 @@ interface TaskListProps {
   onUpdateTask: (updatedTask: Task) => void;
   onDeleteTask: (taskId: number) => void;
   onToggleTaskStatus: (taskId: number) => void;
+  // ⭐ 새로운 prop: 현재 담당자 필터 값과 변경 함수
   currentAssigneeFilter: string;
   onAssigneeFilterChange: (newFilter: string) => void;
-  teamMembers: TeamMemberResponse[];
 }
 
 export default function TaskList({
@@ -40,29 +52,68 @@ export default function TaskList({
   onUpdateTask,
   onDeleteTask,
   onToggleTaskStatus,
-  currentAssigneeFilter,
-  onAssigneeFilterChange,
-  teamMembers,
+  currentAssigneeFilter, // ⭐ prop으로 받음
+  onAssigneeFilterChange, // ⭐ prop으로 받음
 }: TaskListProps) {
+  // const [filter, setFilter] = useState('전체 팀원'); // ⭐ 이 상태는 이제 HomePage에서 관리
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [taskIdToDelete, setTaskIdToDelete] = useState<number | null>(null);
+
+  const handleTaskStatusChange = (taskId: number) => {
+    onToggleTaskStatus(taskId);
+  };
+
+  const filteredTasks = tasks.filter((task) => {
+    let dateMatch = false;
+    if (!task.dueDate) {
+      dateMatch = false;
+    } else {
+      const taskDueDate = new Date(task.dueDate);
+      if (filterMode === 'DATE') {
+        if (selectedDate) {
+          dateMatch =
+            taskDueDate.getFullYear() === selectedDate.getFullYear() &&
+            taskDueDate.getMonth() === selectedDate.getMonth() &&
+            taskDueDate.getDate() === selectedDate.getDate();
+        }
+      } else if (filterMode === 'MONTH') {
+        if (filterMonth) {
+          dateMatch =
+            taskDueDate.getFullYear() === filterMonth.getFullYear() &&
+            taskDueDate.getMonth() === filterMonth.getMonth();
+        }
+      }
+    }
+
+    // ⭐ 담당자 필터를 currentAssigneeFilter prop으로 사용
+    const assigneeMatch =
+      currentAssigneeFilter === '전체 팀원' || task.assignee === currentAssigneeFilter;
+
+    return dateMatch && assigneeMatch;
+  });
 
   let displayDateText = '';
   if (filterMode === 'DATE') {
     displayDateText = selectedDate ? formatDateWithoutFns(selectedDate) : '날짜를 선택하세요';
-  } else if (filterMode === 'MONTH' && filterMonth) {
-    const year = filterMonth.getFullYear();
-    const month = (filterMonth.getMonth() + 1).toString().padStart(2, '0');
-    displayDateText = `${year}.${month}월`;
+  } else if (filterMode === 'MONTH') {
+    if (filterMonth) {
+      const year = filterMonth.getFullYear();
+      const month = (filterMonth.getMonth() + 1).toString().padStart(2, '0');
+      displayDateText = `${year}.${month}월`;
+    } else {
+      displayDateText = '월을 선택하세요';
+    }
   }
 
-  const completedTasksCount = tasks.filter((task) => task.status === '완료').length;
-  const inProgressTasksCount = tasks.filter((task) => task.status === '진행').length;
-  const pendingTasksCount = tasks.filter((task) => task.status === '대기').length;
+  const completedTasksCount = filteredTasks.filter((task) => task.status === '완료').length;
+  const inProgressTasksCount = filteredTasks.filter((task) => task.status === '진행').length;
+  const pendingTasksCount = filteredTasks.filter((task) => task.status === '대기').length;
 
   const openModal = () => setIsModalOpen(true);
+
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingTask(null);
@@ -74,7 +125,7 @@ export default function TaskList({
   };
 
   const handleAddTaskSubmit = (newTaskData: Omit<Task, 'id'>) => {
-    onAddTask(newTaskData as any);
+    onAddTask(newTaskData);
     closeModal();
   };
 
@@ -102,19 +153,27 @@ export default function TaskList({
   const closeConfirmModal = () => {
     setIsConfirmModalOpen(false);
     setTaskIdToDelete(null);
-    if (editingTask) {
-      setIsModalOpen(true);
-    }
+    setIsModalOpen(true);
   };
 
   const handleTaskClick = (event: React.MouseEvent<HTMLDivElement>, task: Task) => {
-    if ((event.target as HTMLElement).tagName === 'INPUT') return;
+    const clickedElement = event.target as HTMLElement;
+    if (
+      clickedElement.tagName === 'INPUT' &&
+      (clickedElement as HTMLInputElement).type === 'checkbox'
+    ) {
+      return;
+    }
     openEditModal(task);
   };
 
   const getDefaultDueDate = () => {
-    if (editingTask?.dueDate) return editingTask.dueDate;
-    if (selectedDate && filterMode === 'DATE') return formatDateWithoutFns(selectedDate);
+    if (editingTask?.dueDate) {
+      return editingTask.dueDate;
+    }
+    if (selectedDate && filterMode === 'DATE') {
+      return formatDateWithoutFns(selectedDate);
+    }
     return '';
   };
 
@@ -152,19 +211,25 @@ export default function TaskList({
           </span>
           <select
             className="flex-grow border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-            value={currentAssigneeFilter}
-            onChange={(e) => onAssigneeFilterChange(e.target.value)}
+            value={currentAssigneeFilter} // ⭐ prop으로 받은 값 사용
+            onChange={(e) => onAssigneeFilterChange(e.target.value)} // ⭐ prop으로 받은 함수 호출
           >
             <option>전체 팀원</option>
-            {teamMembers.map((member) => (
-              <option key={member.userId} value={member.name}>
-                {member.name}
-              </option>
-            ))}
+            <option>고예린</option>
+            <option>김다은</option>
+            <option>김세현</option>
+            <option>정태윤</option>
           </select>
         </div>
+
+        {/* ⭐ 이 부분이 수정됩니다. */}
         <div className="bg-gray-100 rounded-lg p-4 mt-4">
-          <h3 className="text-sm font-semibold text-gray-800 mb-3 text-left">오늘의 진행상황</h3>
+          {' '}
+          {/* 연한 회색 배경과 패딩 추가 */}
+          <h3 className="text-sm font-semibold text-gray-800 mb-3 text-left">
+            오늘의 진행상황
+          </h3>{' '}
+          {/* 제목 추가 */}
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-green-500 text-lg font-bold">{completedTasksCount}</p>
@@ -181,9 +246,10 @@ export default function TaskList({
           </div>
         </div>
       </div>
-      <div className="border-t border-gray-200 pt-6 mt-6"></div>
+      {/* ⭐ 여기에 구분선 추가 */}
+      <div className="border-t border-gray-200 pt-6 mt-6"></div> {/* mt-6으로 위쪽 여백 추가 */}
       <div className="space-y-4 max-h-[calc(100vh-25rem)] overflow-y-auto pr-2">
-        {tasks.map((task) => (
+        {filteredTasks.map((task) => (
           <div
             key={task.id}
             className="bg-white rounded-lg p-4 shadow-sm flex items-start space-x-3 cursor-pointer hover:bg-gray-100 transition-colors"
@@ -195,9 +261,10 @@ export default function TaskList({
               checked={task.status === '완료'}
               onChange={(e) => {
                 e.stopPropagation();
-                onToggleTaskStatus(task.id);
+                handleTaskStatusChange(task.id);
               }}
             />
+
             <div className="flex-1">
               <h3
                 className={`font-semibold text-gray-900 ${
@@ -207,25 +274,27 @@ export default function TaskList({
                 {task.title}
               </h3>
               <p className="text-gray-600 text-sm">{task.description}</p>
-              {task.assignee && <p className="text-gray-500 text-xs">{task.assignee}</p>}
+              <p className="text-gray-500 text-xs">{task.assignee}</p>
               {task.dueDate && <p className="text-gray-500 text-xs mt-1">마감일: {task.dueDate}</p>}
             </div>
+
             <div className="flex flex-col items-end space-y-1 min-w-[60px]">
-              {task.priority === '높음' && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                  높음
-                </span>
-              )}
               {task.priority === '보통' && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                  보통
+                  {task.priority}
+                </span>
+              )}
+              {task.priority === '높음' && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  {task.priority}
                 </span>
               )}
               {task.priority === '낮음' && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  낮음
+                  {task.priority}
                 </span>
               )}
+
               {task.status === '완료' && (
                 <span className="flex items-center text-green-600 text-xs font-semibold">
                   <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span> 완료
@@ -253,15 +322,23 @@ export default function TaskList({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            const submitData = {
-              title: formData.get('taskTitle') as string,
-              description: formData.get('taskDescription') as string,
-              assignee: formData.get('taskAssignee') as string,
-              priority: formData.get('taskPriority') as '낮음' | '보통' | '높음',
-              dueDate: formData.get('taskDueDate') as string,
-              status: formData.get('taskStatus') as '완료' | '대기' | '진행',
+            const form = e.target as HTMLFormElement;
+            const titleInput = form.elements.namedItem('taskTitle') as HTMLInputElement;
+            const descriptionInput = form.elements.namedItem('taskDescription') as HTMLInputElement;
+            const assigneeInput = form.elements.namedItem('taskAssignee') as HTMLInputElement;
+            const priorityInput = form.elements.namedItem('taskPriority') as HTMLSelectElement;
+            const dueDateInput = form.elements.namedItem('taskDueDate') as HTMLInputElement;
+            const statusInput = form.elements.namedItem('taskStatus') as HTMLSelectElement;
+
+            const submitData: Omit<Task, 'id'> = {
+              title: titleInput.value,
+              description: descriptionInput.value,
+              assignee: assigneeInput.value,
+              priority: priorityInput.value as '낮음' | '보통' | '높음',
+              dueDate: dueDateInput.value,
+              status: statusInput.value as '완료' | '대기' | '진행',
             };
+
             if (editingTask) {
               handleUpdateTaskSubmit({ ...submitData, id: editingTask.id });
             } else {
@@ -353,8 +430,10 @@ export default function TaskList({
               </select>
             </div>
           </div>
-          <div className="border-t border-gray-200 pt-6 mt-6"></div>
+          {/* ⭐ 여기에 구분선 추가 */}
+          <div className="border-t border-gray-200 pt-6 mt-6"></div> {/* mt-6으로 위쪽 여백 추가 */}
           <div className="flex justify-between items-center mt-6">
+            {/* 왼쪽 버튼 그룹: 삭제 (선택적) 및 취소 */}
             <div className="flex space-x-3">
               {editingTask && (
                 <button
@@ -373,6 +452,8 @@ export default function TaskList({
                 취소
               </button>
             </div>
+
+            {/* 오른쪽 버튼: 작업 수정 또는 작업 추가 */}
             <button
               type="submit"
               className="px-4 py-2 bg-yellow-400 text-white rounded-md hover:bg-yellow-500"

@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation'; // useRouter 대신 useParams 사용
-import { getMeetingDetail, getMeetingSttResult, MeetingSttResultResponse } from '@/api/meeting'; // getMeetingSttResult와 MeetingSttResultResponse 임포트
+import { useEffect, useState, useRef } from 'react';
+import { useParams } from 'next/navigation';
+import { getMeetingDetail, getMeetingSttResult, MeetingSttResultResponse } from '@/api/meeting';
 import SummarySection from '@/components/SummarySection';
 import ResourcesSection from '@/components/RecommandSection';
+import EnhancedAudioPlayer, { AudioPlayerHandle } from '@/components/EnhancedAudioPlayer';
+import ScriptTranscript from '@/components/ScriptTranscript';
 
-// MeetingDetailResponse 인터페이스가 정의되어 있지 않다면 추가
-// 예시:
 interface AgendaItem {
   agenda: string;
   body: string;
@@ -16,7 +16,6 @@ interface AgendaItem {
 interface Participant {
   id: number;
   name: string;
-  // ... 기타 참가자 정보
 }
 
 interface MeetingDetailResponse {
@@ -27,7 +26,14 @@ interface MeetingDetailResponse {
   note: string;
   meetingMethod: 'RECORD' | 'REALTIME';
   teamId: number;
-  // ... 기타 회의 상세 정보
+  duration: number; // DB에서 받아올 오디오 길이
+}
+
+interface SpeechLogDto {
+  speakerIndex: number;
+  text: string;
+  startTime: number;
+  endTime: number;
 }
 
 export default function MeetingDetailPage() {
@@ -37,6 +43,11 @@ export default function MeetingDetailPage() {
   const [sttResult, setSttResult] = useState<MeetingSttResultResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentAudioTime, setCurrentAudioTime] = useState(0);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+  // EnhancedAudioPlayer의 함수를 호출하기 위한 ref 생성
+  const audioPlayerRef = useRef<AudioPlayerHandle>(null);
 
   useEffect(() => {
     if (isNaN(meetingId)) {
@@ -44,18 +55,38 @@ export default function MeetingDetailPage() {
       setError('잘못된 회의 ID입니다.');
       return;
     }
+
     const fetchData = async () => {
       if (!meetingId) return;
-
       setLoading(true);
       setError(null);
-
       try {
         const detail = await getMeetingDetail(meetingId);
         setMeetingDetail(detail);
 
         const stt = await getMeetingSttResult(meetingId);
         setSttResult(stt);
+
+        if (stt.audioId) {
+          if (stt.audioId.startsWith('gs://') || stt.audioId.startsWith('https://')) {
+            try {
+              const audioResponse = await fetch(
+                `/api/audio?audioId=${encodeURIComponent(stt.audioId)}`
+              );
+              if (audioResponse.ok) {
+                const audioData = await audioResponse.json();
+                setAudioUrl(audioData.audioUrl);
+              } else {
+                setAudioUrl(stt.audioId);
+              }
+            } catch (audioError) {
+              console.warn('오디오 URL 처리 실패, 직접 사용:', audioError);
+              setAudioUrl(stt.audioId);
+            }
+          } else {
+            setAudioUrl(stt.audioId);
+          }
+        }
       } catch (err: any) {
         console.error('데이터 불러오기 실패:', err);
         setError('회의 정보를 불러오는 데 실패했습니다.');
@@ -69,6 +100,15 @@ export default function MeetingDetailPage() {
 
     fetchData();
   }, [meetingId]);
+
+  const handleAudioTimeUpdate = (time: number) => {
+    setCurrentAudioTime(time);
+  };
+
+  // ref를 통해 플레이어의 seekToTime 함수를 직접 호출
+  const handleScriptClick = (time: number) => {
+    audioPlayerRef.current?.seekToTime(time);
+  };
 
   if (loading) {
     return (
@@ -94,7 +134,6 @@ export default function MeetingDetailPage() {
     );
   }
 
-  // 날짜 포맷팅 함수 (필요하다면 util 파일로 분리)
   const formatKoreanDate = (isoString: string): string => {
     const date = new Date(isoString);
     const year = date.getFullYear();
@@ -105,93 +144,87 @@ export default function MeetingDetailPage() {
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${year}년 ${month}월 ${day}일 (${dayOfWeek}) ${hours}:${minutes}`;
   };
-  const parseSttTranscript = (transcript: string) => {
-    const trimmedTranscript = transcript.trim();
-    const lines = trimmedTranscript.split(/\r?\n|\r/);
-    const parsedData = lines
-      .map((line) => {
-        const trimmedLine = line.trim();
-        if (trimmedLine === '') {
-          return null;
-        }
-
-        const match = trimmedLine.match(/^\[(.*?)\]\s+\((.*?)\)\s+(.*)/);
-        if (match) {
-          const [_, speaker, time, text] = match;
-          return { speaker, time, text };
-        }
-        return null;
-      })
-      .filter((item) => item !== null);
-
-    return parsedData;
-  };
-
+  console.log('EnhancedAudioPlayer에 전달될 데이터 확인:', meetingDetail);
   return (
     <div className="flex h-full overflow-hidden">
-      {/* 회의 정보 및 음성 기록 */}
-      <div className="w-2/3 p-6 overflow-y-auto bg-white border-r border-gray-200">
-        <div className="space-y-6">
-          <section>
-            <h2 className="text-2xl font-bold mb-2">{meetingDetail.title}</h2>
-            <p className="text-gray-500">{formatKoreanDate(meetingDetail.meetingAt)}</p>
+      {/* 왼쪽 영역: 회의 정보 및 음성 기록 */}
+      <div className="w-2/3 flex flex-col overflow-hidden bg-white border-r border-gray-200">
+        {/* 오디오 플레이어 */}
+        {audioUrl && sttResult?.speechLogs && meetingDetail && (
+          <div className="flex-shrink-0 p-4 border-b border-gray-200">
+            <EnhancedAudioPlayer
+              ref={audioPlayerRef}
+              audioUrl={audioUrl}
+              speechLogs={sttResult.speechLogs}
+              title={`${meetingDetail.title} 녹음`}
+              onTimeUpdate={handleAudioTimeUpdate}
+              initialDuration={meetingDetail.duration} // DB에서 가져온 duration 값을 전달
+            />
+          </div>
+        )}
 
-            <div className="mt-4 space-y-3">
-              <div className="bg-[#FFD93D] text-white px-3 py-1 inline-block rounded text-sm font-semibold">
-                회의 멤버
-              </div>
-              <p className="text-gray-700">
-                {meetingDetail.participants.map((p) => p.name).join(', ')}
-              </p>
+        {/* 스크롤 가능한 콘텐츠 영역 */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-6">
+            {/* 회의 기본 정보 */}
+            <section>
+              <h2 className="text-2xl font-bold mb-2">{meetingDetail.title}</h2>
+              <p className="text-gray-500">{formatKoreanDate(meetingDetail.meetingAt)}</p>
 
-              <div className="bg-[#FFD93D] text-white px-3 py-1 inline-block rounded text-sm font-semibold">
-                회의 안건
-              </div>
-              <ul className="list-disc list-inside text-gray-800 space-y-6">
-                {meetingDetail.agendas.map((agenda, index) => (
-                  <li key={index}>
-                    <span className="font-semibold">{agenda.agenda}</span>
-                    <div className="mt-2 ml-4 p-4 rounded-md border border-gray-200 bg-white shadow-sm text-sm leading-relaxed">
-                      {agenda.body}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-4 space-y-3">
+                <div className="bg-[#FFD93D] text-white px-3 py-1 inline-block rounded text-sm font-semibold">
+                  회의 멤버
+                </div>
+                <p className="text-gray-700">
+                  {meetingDetail.participants.map((p) => p.name).join(', ')}
+                </p>
 
-              <div className="bg-[#FFD93D] text-white px-3 py-1 inline-block rounded text-sm font-semibold">
-                회의 메모
-              </div>
-              <p className="text-gray-700">{meetingDetail.note || '메모가 없습니다.'}</p>
-            </div>
-          </section>
-
-          {/*STT 결과 표시 영역 */}
-          <section>
-            <h2 className="text-2xl font-bold mb-2">음성 기록</h2>
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 min-h-[200px]">
-              {sttResult && sttResult.transcript ? (
-                <div className="space-y-4">
-                  {parseSttTranscript(sttResult.transcript).map((item, index) => {
-                    const cleanedText = item.text;
-
-                    return (
-                      <div key={index} className="flex flex-col space-y-1">
-                        <p className="text-sm font-semibold text-purple-700">{item.speaker}</p>
-                        <p className="text-sm text-gray-800">{cleanedText}</p>
-                        <p className="text-xs text-gray-400">{item.time}</p>
+                <div className="bg-[#FFD93D] text-white px-3 py-1 inline-block rounded text-sm font-semibold">
+                  회의 안건
+                </div>
+                <ul className="list-disc list-inside text-gray-800 space-y-6">
+                  {meetingDetail.agendas.map((agenda, index) => (
+                    <li key={index}>
+                      <span className="font-semibold">{agenda.agenda}</span>
+                      <div className="mt-2 ml-4 p-4 rounded-md border border-gray-200 bg-white shadow-sm text-sm leading-relaxed">
+                        {agenda.body}
                       </div>
-                    );
-                  })}
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="bg-[#FFD93D] text-white px-3 py-1 inline-block rounded text-sm font-semibold">
+                  회의 메모
+                </div>
+                <p className="text-gray-700">{meetingDetail.note || '메모가 없습니다.'}</p>
+              </div>
+            </section>
+
+            {/* STT 결과 표시 영역 */}
+            <section>
+              <h2 className="text-2xl font-bold mb-4">음성 기록</h2>
+              {sttResult && sttResult.speechLogs && sttResult.speechLogs.length > 0 ? (
+                <div className="bg-gray-50 p-4 rounded-lg border">
+                  <div className="mb-3 text-sm text-gray-600">
+                    💡 발언 내용을 클릭하면 해당 시점으로 오디오가 이동합니다.
+                  </div>
+                  <ScriptTranscript
+                    speechLogs={sttResult.speechLogs}
+                    currentTime={currentAudioTime}
+                    onScriptClick={audioUrl ? handleScriptClick : undefined}
+                  />
                 </div>
               ) : (
-                <p className="text-gray-500">STT 기록이 없습니다.</p>
+                <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 min-h-[200px]">
+                  <p className="text-gray-500">음성 기록이 없습니다.</p>
+                </div>
               )}
-            </div>
-          </section>
+            </section>
+          </div>
         </div>
       </div>
 
-      {/* 요약 및 자료 */}
+      {/* 오른쪽 영역: 요약 및 자료 */}
       <div className="w-1/3 p-6 overflow-y-auto bg-[#f7f7f7]">
         <div className="space-y-6">
           <SummarySection />

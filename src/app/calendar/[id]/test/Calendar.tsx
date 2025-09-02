@@ -1,10 +1,12 @@
+// src/components/MyCalendar.tsx
 'use client';
 
 import React from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './CalendarStyles.css';
-import { Task } from '@/types/task';
+
+import { Task } from './TaskList'; // Task 인터페이스만 임포트
 
 type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
@@ -14,9 +16,9 @@ interface CalendarProps {
   onChange: (date: Value) => void;
   tasks: Task[];
   onViewMonthTasks: (month: Date) => void;
+  currentAssigneeFilter: string;
+  // ⭐ 새로운 prop: 팀 이름 추가
   teamName: string;
-  onActiveStartDateChange: ({ activeStartDate }: { activeStartDate: Date | null }) => void;
-  activeStartDate: Date;
 }
 
 const formatDateForDot = (date: Date): string => {
@@ -28,11 +30,14 @@ export default function MyCalendar({
   onChange,
   tasks,
   onViewMonthTasks,
-  teamName,
-  onActiveStartDateChange,
-  activeStartDate,
+  currentAssigneeFilter,
+  teamName, // ⭐ props로 teamName 받기
 }: CalendarProps) {
-  const datesWithDots = tasks
+  const filteredTasksForDots = tasks.filter((task) => {
+    return currentAssigneeFilter === '전체 팀원' || task.assignee === currentAssigneeFilter;
+  });
+
+  const datesWithDots = filteredTasksForDots
     .filter((task) => task.dueDate)
     .map((task) => formatDateForDot(new Date(task.dueDate!)));
 
@@ -43,6 +48,7 @@ export default function MyCalendar({
     <div className="flex flex-col items-center p-4">
       <div className="w-full max-w-sm">
         <div className="bg-yellow-400 rounded-t-lg p-4 text-left">
+          {/* ⭐ 여기를 teamName prop으로 변경 */}
           <h1 className="text-white text-lg font-bold">{teamName} 팀의 워크스페이스</h1>
         </div>
         <div className="bg-gray-50 rounded-b-2xl p-6 shadow-sm">
@@ -62,8 +68,6 @@ export default function MyCalendar({
             locale="ko-KR"
             next2Label={null}
             prev2Label={null}
-            onActiveStartDateChange={onActiveStartDateChange}
-            activeStartDate={activeStartDate}
             tileContent={({ date, view }) => {
               if (view === 'month' && datesWithDots.includes(formatDateForDot(date))) {
                 return <div className="dot-indicator"></div>;

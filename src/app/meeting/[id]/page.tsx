@@ -303,7 +303,6 @@ export default function MeetingDetailPage() {
     formData.append('duration', String(duration));
 
     try {
-      // TODO: 백엔드 STT API 엔드포인트로 변경
       const response = await fetch('/api/transcribe', {
         method: 'POST',
         body: formData,
@@ -315,7 +314,6 @@ export default function MeetingDetailPage() {
 
       const result = await response.json();
       console.log('Transcription Result:', result);
-      // TODO: 백엔드 응답을 기반으로 DB에 저장 또는 상태 업데이트 로직 추가
     } catch (error) {
       console.error('음성 분석 업로드 실패:', error);
       alert('음성 분석 중 오류가 발생했습니다.');
