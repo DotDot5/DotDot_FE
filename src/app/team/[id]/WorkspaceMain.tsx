@@ -45,9 +45,9 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
   };
   // 공지사항 보기 토글
   // const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
-  const noticeViewRef = useRef<HTMLDivElement>(null);
+  // const noticeViewRef = useRef<HTMLDivElement>(null);
   const [showNoticeToggle, setShowNoticeToggle] = useState(false);
-  const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
+  // const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
 
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -178,6 +178,16 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
     setMemberRole(member.role || '');
     setIsMemberModalOpen(true);
   };
+  // 공지 토글 옆에 추가
+  const noticeViewRef = useRef<HTMLDivElement>(null);
+  const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
+
+  // 팀 멤버 카드 높이 고정용
+  const teamCardRef = useRef<HTMLDivElement>(null);
+  const [teamBaseHeight, setTeamBaseHeight] = useState<number>(0);
+
+  // 접힘 상태 여부 (편집 중이면 펼침으로 취급)
+  const isCollapsed = !isNoticeExpanded && !isEditingNotice;
 
   const handleSaveMemberRole = async () => {
     if (!selectedMember) {
@@ -236,6 +246,25 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
   };
 
   useEffect(() => {
+    // 접힘 상태에서만 기준 높이 갱신
+    if (teamCardRef.current && isCollapsed) {
+      const h = teamCardRef.current.getBoundingClientRect().height;
+      setTeamBaseHeight(h);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCollapsed, members.length]); // 멤버 수 바뀌면 재측정
+
+  useEffect(() => {
+    const onResize = () => {
+      if (teamCardRef.current && isCollapsed) {
+        setTeamBaseHeight(teamCardRef.current.getBoundingClientRect().height);
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [isCollapsed]);
+
+  useEffect(() => {
     const calc = () => {
       if (!noticeViewRef.current) return;
       const el = noticeViewRef.current;
@@ -251,7 +280,6 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
     window.addEventListener('resize', calc);
     return () => window.removeEventListener('resize', calc);
   }, [noticeText, isEditingNotice, isNoticeExpanded]);
-
 
   useEffect(() => {
     const handleScroll = () => {
@@ -308,9 +336,11 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
       {/* Main Content Cards */}
       <div className="px-8 py-8 bg-white rounded-t-3xl -mt-6 relative">
         {/* Notice and Team Members Section - Split into two cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start">
+        <div
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 ${isCollapsed ? 'items-stretch' : 'items-start'}`}
+        >
           {/* Notice Section */}
-          <div className="bg-gray-50 rounded-2xl p-6 shadow-sm">
+          <div className={`bg-gray-50 rounded-2xl p-6 shadow-sm ${isCollapsed ? 'h-full' : ''}`}>
             <Button className="bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 mb-4">
               공지사항
             </Button>
@@ -415,7 +445,11 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
           </div>
 
           {/* Team Members Section */}
-          <div className="bg-gray-50 rounded-2xl p-6 shadow-sm">
+          <div
+            ref={teamCardRef}
+            className={`bg-gray-50 rounded-2xl p-6 shadow-sm ${isCollapsed ? 'h-full' : 'self-start'}`}
+            style={!isCollapsed && teamBaseHeight ? { minHeight: teamBaseHeight } : undefined}
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold text-[#333333]">팀 멤버</span>
