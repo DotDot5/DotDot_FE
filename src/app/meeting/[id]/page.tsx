@@ -354,25 +354,28 @@ export default function MeetingDetailPage() {
     formData.append('meetingId', String(meetingId));
     formData.append('duration', String(duration));
 
-    try {
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      });
+    // 오류나서 주석처리
+    //   try {
+    //     const response = await fetch('/api/transcribe', {
+    //       method: 'POST',
+    //       body: formData,
+    //     });
 
-      if (!response.ok) {
-        throw new Error('Transcription failed');
-      }
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('음성 분석 업로드 실패:', error);
-      alert('음성 분석 중 오류가 발생했습니다.');
-    } finally {
-      setIsTranscribing(false);
-    }
+    //     if (!response.ok) {
+    //       throw new Error('Transcription failed');
+    //     }
+    //     const result = await response.json();
+    //     return result;
+    //   } catch (error) {
+    //     console.error('음성 분석 업로드 실패:', error);
+    //     alert('음성 분석 중 오류가 발생했습니다.');
+    //   } finally {
+    //     setIsTranscribing(false);
+    //   }
+    const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
+    if (!response.ok) throw new Error('Transcription failed');
+    return response.json(); // 필요하면 호출부에서 활용
   };
-
   // 녹음 파일 다운로드 함수
   const handleDownloadRecording = () => {
     if (recordedBlob) {
