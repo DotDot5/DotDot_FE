@@ -80,9 +80,19 @@ export interface CreateMeetingResponse {
   meetingId: number;
 }
 
+export interface SpeechLogDto {
+  speakerIndex: number;
+  text: string;
+  startTime: number;
+  endTime: number;
+}
+
 export interface MeetingSttResultResponse {
+  meetingId: number;
   duration: number;
   transcript: string;
+  audioId: string;
+  speechLogs: SpeechLogDto[];
 }
 
 export interface MeetingSummaryResponse {

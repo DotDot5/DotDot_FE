@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getMeetingDetail, updateMeetingDetail, askChatbot, getChatHistory, endChatbot } from '@/api/meeting';
+import {
+  getMeetingDetail,
+  updateMeetingDetail,
+  askChatbot,
+  getChatHistory,
+  endChatbot,
+} from '@/api/meeting';
 import { Button } from '@/components/internal/ui/button';
 import { Card, CardContent } from '@/components/internal/ui/card';
 import {
@@ -30,8 +36,6 @@ import {
 } from '@/api/meeting';
 import type { MeetingParticipant, UpdateMeetingRequest } from '@/api/meeting';
 import { getTeamMembers } from '@/api/team';
-
-
 
 interface AgendaItem {
   id: number;
@@ -345,15 +349,28 @@ export default function MeetingDetailPage() {
   };
 
   const uploadRecordingForTranscription = async (file: Blob | File, duration: number) => {
-
     const formData = new FormData();
     formData.append('audio', file, `meeting_${meetingId}.webm`);
     formData.append('meetingId', String(meetingId));
     formData.append('duration', String(duration));
 
-    const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
-    if (!response.ok) throw new Error('Transcription failed');
-    return response.json(); // 필요하면 호출부에서 활용
+    try {
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Transcription failed');
+      }
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('음성 분석 업로드 실패:', error);
+      alert('음성 분석 중 오류가 발생했습니다.');
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   // 녹음 파일 다운로드 함수
@@ -422,7 +439,6 @@ export default function MeetingDetailPage() {
     );
   };
 
-  
   const handleUpdateMeeting = async () => {
     try {
       // 화면 전용 participants → 서버 DTO로 변환
@@ -556,7 +572,7 @@ export default function MeetingDetailPage() {
         const members = await getTeamMembers(String(teamId));
         const nameToId = new Map(members.map((m) => [m.name, m.userId]));
         // 임시 숫자: 오늘 + N일을 due로 사용
-        const TEMP_DUE_DAYS = 7; 
+        const TEMP_DUE_DAYS = 7;
         const makeTempDueISO = () => {
           const d = new Date();
           d.setDate(d.getDate() + TEMP_DUE_DAYS);
@@ -629,7 +645,6 @@ export default function MeetingDetailPage() {
       setPostLabel('');
     }
   };
-
 
   const handleDeleteAgenda = (id: number) => {
     setAgendaItems(agendaItems.filter((item) => item.id !== id));

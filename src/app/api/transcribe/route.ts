@@ -13,11 +13,23 @@ function formatSecondsToMinutesSeconds(totalSeconds: number): string {
   if (totalSeconds < 0) {
     totalSeconds = 0;
   }
-  const minutes = Math.floor(totalSeconds / 60);
-  const remainingSeconds = Math.floor(totalSeconds % 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+
+  const formattedHours = String(hours).padStart(2, '0');
   const formattedMinutes = String(minutes).padStart(2, '0');
-  const formattedSeconds = String(remainingSeconds).padStart(2, '0');
-  return `${formattedMinutes}:${formattedSeconds}`;
+  const formattedSeconds = String(seconds).padStart(2, '0');
+
+  return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
+}
+
+function hmsToSeconds(hms: string): number {
+  const [hours, minutes, seconds] = hms.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) {
+    return 0;
+  }
+  return hours * 3600 + minutes * 60 + seconds;
 }
 
 export async function POST(req: Request) {
@@ -87,9 +99,13 @@ export async function POST(req: Request) {
     const gcsPath = `audios/${fileName}`;
     await storageClient.bucket(bucketName).upload(filePath, {
       destination: gcsPath,
+      metadata: {
+        contentType: 'audio/webm',
+      },
     });
+    const gcsUri = `gs://${bucketName}/${gcsPath}`;
     console.log(`File uploaded to GCS: gs://${bucketName}/${gcsPath}`);
-
+    const audioUrl = gcsUri;
     fs.unlinkSync(filePath);
     console.log(`Local temp file deleted: ${filePath}`);
 
@@ -148,7 +164,10 @@ export async function POST(req: Request) {
         startTimeInSeconds += initialRecordingOffsetSeconds;
         endTimeInSeconds += initialRecordingOffsetSeconds;
 
-        if (currentSpeaker === null || speakerTag !== currentSpeaker) {
+        const silenceDuration =
+          lastWordEndTimeInSeconds > 0 ? startTimeInSeconds - lastWordEndTimeInSeconds : 0;
+
+        if (currentSpeaker === null || speakerTag !== currentSpeaker || silenceDuration >= 5) {
           if (
             currentSegmentText !== '' &&
             currentSpeaker !== null &&
@@ -204,6 +223,7 @@ export async function POST(req: Request) {
       .join('\n');
 
     let durationToSave: number;
+
     if (meetingMethod === 'RECORD') {
       const lastSegment = processedSegments[processedSegments.length - 1];
       durationToSave = lastSegment ? Math.floor(lastSegment.endTimeInSeconds) : 0;
@@ -211,14 +231,32 @@ export async function POST(req: Request) {
       durationToSave = Math.floor(audioDurationInSeconds);
     }
 
+    if (durationToSave === 0 && processedSegments.length > 0) {
+      console.log('기본 duration이 0이므로, transcript 파싱으로 보정 시작...');
+      try {
+        const lastParenIndex = fullTranscript.lastIndexOf(')');
+        if (lastParenIndex > 8) {
+          const endTimeString = fullTranscript.substring(lastParenIndex - 8, lastParenIndex);
+          const parsedDuration = hmsToSeconds(endTimeString);
+
+          if (parsedDuration > 0) {
+            durationToSave = parsedDuration;
+            console.log(`파싱 성공. 보정된 duration: ${durationToSave}`);
+          }
+        }
+      } catch (e) {
+        console.error('duration 파싱 중 오류 발생:', e);
+      }
+    }
+
     try {
       const updateBackendUrl = `http://localhost:8080/api/v1/meetings/${meetingId}/stt-result`;
       console.log(`Calling Spring Boot backend at: ${updateBackendUrl}`);
 
-      // speech_logs 테이블에 저장할 데이터를 포함한 요청 바디
       const requestBody = {
         duration: durationToSave,
         transcript: fullTranscript,
+        audio_id: audioUrl,
         speechLogs: processedSegments.map((s) => ({
           speakerIndex: s.speaker,
           text: s.text,
