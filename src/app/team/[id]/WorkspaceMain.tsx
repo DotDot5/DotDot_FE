@@ -43,7 +43,12 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
     queryClient.invalidateQueries({ queryKey: ['pastMeetings', teamId] });
     onRefreshMeetings?.(); // 부모 컴포넌트의 갱신 함수도 호출
   };
-  
+  // 공지사항 보기 토글
+  // const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
+  const noticeViewRef = useRef<HTMLDivElement>(null);
+  const [showNoticeToggle, setShowNoticeToggle] = useState(false);
+  const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
+
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
@@ -231,6 +236,24 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
   };
 
   useEffect(() => {
+    const calc = () => {
+      if (!noticeViewRef.current) return;
+      const el = noticeViewRef.current;
+      // ‘접기(1줄)’ 상태에서만 오버플로우 여부 계산
+      if (!isNoticeExpanded) {
+        // line-clamp(1) 적용 시 clientHeight는 1줄 높이, scrollHeight는 전체 높이
+        setShowNoticeToggle(el.scrollHeight > el.clientHeight + 1);
+      } else {
+        setShowNoticeToggle(true); // 펼친 상태에선 토글(접기) 버튼 항상 표시
+      }
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, [noticeText, isEditingNotice, isNoticeExpanded]);
+
+
+  useEffect(() => {
     const handleScroll = () => {
       // 강제로 리렌더링을 위해 빈 상태 업데이트
       setMembers((prev) => [...prev]);
@@ -319,16 +342,75 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
                 </div>
               </div>
             ) : (
-              <p
-                className="text-[#333333] text-sm leading-relaxed cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors whitespace-pre-line whitespace-pre-wrap break-words"
-                onClick={handleNoticeEdit}
-              >
-                {noticeText.trim() === '' ? (
-                  <span className="text-[#666666]">공지사항을 입력하세요...</span>
-                ) : (
-                  noticeText
-                )}
-              </p>
+              //   <p
+              //     className="text-[#333333] text-sm leading-relaxed cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors whitespace-pre-line whitespace-pre-wrap break-words"
+              //     onClick={handleNoticeEdit}
+              //   >
+              //     {noticeText.trim() === '' ? (
+              //       <span className="text-[#666666]">공지사항을 입력하세요...</span>
+              //     ) : (
+              //       noticeText
+              //     )}
+              //   </p>
+              // )}
+              <div className="relative pr-10 pb-6">
+                <p
+                  className="text-[#333333] text-sm leading-7 whitespace-pre-line break-words cursor-pointer"
+                  onClick={handleNoticeEdit} // ← 클릭해서 편집 여전히 가능
+                  style={
+                    !isNoticeExpanded
+                      ? {
+                          display: '-webkit-box',
+                          WebkitBoxOrient: 'vertical',
+                          WebkitLineClamp: '1', // 1줄만 보이게 (… 자동)
+                          overflow: 'hidden',
+                        }
+                      : undefined // 펼친 경우 clamp 제거
+                  }
+                >
+                  {noticeText.trim() === '' ? (
+                    <span className="text-[#666666]">공지사항을 입력하세요...</span>
+                  ) : (
+                    noticeText
+                  )}
+                </p>
+
+                {/* 토글 버튼 (오른쪽 아래) */}
+                <button
+                  type="button"
+                  onClick={() => setIsNoticeExpanded((v) => !v)}
+                  className="absolute right-0 bottom-0 flex items-center gap-1 text-sm text-[#3B82F6] hover:text-[#3B82F6]"
+                  aria-label={isNoticeExpanded ? '접기' : '펼치기'}
+                >
+                  {isNoticeExpanded ? (
+                    <>
+                      접기
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <path
+                          d="M18 15l-6-6-6 6"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </>
+                  ) : (
+                    <>
+                      모두 보기
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <path
+                          d="M6 9l6 6 6-6"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </>
+                  )}
+                </button>
+              </div>
             )}
           </div>
 
