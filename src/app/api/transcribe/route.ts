@@ -214,7 +214,7 @@ export async function POST(req: Request) {
     );
 
     const processedSegments = uniqueSegments.map((s) => {
-      const processedText = s.text.replace(/\s/g, '').replace(/ /g, ' ');
+      const processedText = s.text.replace(/\s/g, '').replace(/▁/g, ' ');
       return { ...s, text: processedText };
     });
 
