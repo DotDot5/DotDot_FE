@@ -67,10 +67,10 @@ export default function MeetingCreateModal({
 
   // 팀원 관련 상태
   const [teamMembers, setTeamMembers] = useState<
-    Array<{ userId: number; name: string; role: string }>
+    Array<{ userId: number; name: string; profileImageUrl: string | null; role: string }>
   >([]);
   const [selectedMembers, setSelectedMembers] = useState<
-    Array<{ userId: number; name: string; role: string }>
+    Array<{ userId: number; name: string; profileImageUrl: string | null; role: string }>
   >([]);
   const [showMemberSelector, setShowMemberSelector] = useState(false);
 
@@ -134,6 +134,7 @@ export default function MeetingCreateModal({
           userId: m.userId || teamMember?.userId || 0,
           name: m.name,
           role: m.role,
+          profileImageUrl: teamMember?.profileImageUrl ?? null, // 추가
         };
       });
       setMembers(editMembers);
@@ -197,17 +198,31 @@ export default function MeetingCreateModal({
       // 제거 - userId가 일치하는 멤버 제거
       const updatedMembers = members.filter((m) => m.userId !== member.userId);
       setMembers(updatedMembers);
-      setSelectedMembers(updatedMembers);
+      // profileImageUrl을 포함해서 selectedMembers도 업데이트
+      setSelectedMembers(
+        updatedMembers.map((m) => {
+          const tm = teamMembers.find((tm) => tm.userId === m.userId);
+          return {
+            ...m,
+            profileImageUrl: tm?.profileImageUrl ?? null,
+          };
+        })
+      );
     } else {
-      // 추가 - 기본 역할은 기존 팀원 역할 또는 '참석자'로 설정
+      // 추가 - teamMembers에서 profileImageUrl을 찾아서 포함
+      const tm = teamMembers.find((tm) => tm.userId === member.userId);
       const newMember = {
         userId: member.userId,
         name: member.name,
         role: member.role || '참석자',
+        profileImageUrl: tm?.profileImageUrl ?? null,
       };
-      const updatedMembers = [...members, newMember];
+      const updatedMembers = [
+        ...members,
+        { userId: member.userId, name: member.name, role: member.role || '참석자' },
+      ];
       setMembers(updatedMembers);
-      setSelectedMembers(updatedMembers);
+      setSelectedMembers([...selectedMembers, newMember]);
     }
 
     console.log('Member selection toggled:', member.name, 'isSelected:', isSelected);
@@ -256,8 +271,16 @@ export default function MeetingCreateModal({
     updated[index].role = role;
     setMembers(updated);
 
-    // 모든 모드에서 selectedMembers 동기화
-    setSelectedMembers(updated);
+    // 모든 모드에서 selectedMembers 동기화 (profileImageUrl 포함)
+    setSelectedMembers(
+      updated.map((m) => {
+        const tm = teamMembers.find((tm) => tm.userId === m.userId);
+        return {
+          ...m,
+          profileImageUrl: tm?.profileImageUrl ?? null,
+        };
+      })
+    );
 
     setOpenRoleDropdown(null);
     console.log('Member role updated:', updated[index].name, 'to', role);
@@ -266,7 +289,15 @@ export default function MeetingCreateModal({
   const removeMember = (index: number) => {
     const updated = members.filter((_, i) => i !== index);
     setMembers(updated);
-    setSelectedMembers(updated);
+    setSelectedMembers(
+      updated.map((m) => {
+        const tm = teamMembers.find((tm) => tm.userId === m.userId);
+        return {
+          ...m,
+          profileImageUrl: tm?.profileImageUrl ?? null,
+        };
+      })
+    );
   };
 
   const addAgendaItem = () => {
@@ -441,341 +472,380 @@ export default function MeetingCreateModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div 
+        <div
           className="flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
           style={{
             scrollbarWidth: 'thin',
-            scrollbarColor: '#d1d5db transparent'
+            scrollbarColor: '#d1d5db transparent',
           }}
         >
-        {/* 회의 제목 */}
-        <div className="mb-4">
-          <label className="text-sm font-semibold text-[#000000] block mb-2">회의 제목</label>
-          <Input
-            className="w-full border-gray-300 pr-10 text-[#000000]"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="회의 제목을 입력하세요"
-          />
-        </div>
-
-        {/* 날짜 & 시간 */}
-        <div className="flex gap-4 mb-4">
-          <div className="flex-1">
-            <label className="text-sm font-semibold text-[#000000] block mb-2">회의 날짜</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <div className="relative">
-                  <Input
-                    readOnly
-                    value={date?.toLocaleDateString() || ''}
-                    className="w-full pr-10 border-gray-300 text-[#666666] cursor-pointer"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666]" />
-                </div>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-              </PopoverContent>
-            </Popover>
+          {/* 회의 제목 */}
+          <div className="mb-4">
+            <label className="text-sm font-semibold text-[#000000] block mb-2">회의 제목</label>
+            <Input
+              className="w-full border-gray-300 pr-10 text-[#000000]"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="회의 제목을 입력하세요"
+            />
           </div>
 
-          <div className="flex-1">
-            <label className="text-sm font-semibold text-[#000000] block mb-2">시간</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <div className="relative">
-                  <Input
-                    readOnly
-                    value={time}
-                    className="w-full pr-10 border-gray-300 text-[#666666] cursor-pointer"
-                  />
-                  <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666]" />
-                </div>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <TimePicker value={time} onChange={setTime} />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
+          {/* 날짜 & 시간 */}
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              <label className="text-sm font-semibold text-[#000000] block mb-2">회의 날짜</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <div className="relative">
+                    <Input
+                      readOnly
+                      value={date?.toLocaleDateString() || ''}
+                      className="w-full pr-10 border-gray-300 text-[#666666] cursor-pointer"
+                    />
+                    <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666]" />
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
 
-        {/* 회의 기록 방식 */}
-        <div className="mb-4">
-          <label className="text-sm font-semibold text-[#000000] block mb-2">회의 기록 방식</label>
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-[#000000]">
-              <input
-                type="radio"
-                checked={recordType === 'REALTIME'}
-                onChange={() => setRecordType('REALTIME')}
-              />
-              실시간 녹음
+            <div className="flex-1">
+              <label className="text-sm font-semibold text-[#000000] block mb-2">시간</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <div className="relative">
+                    <Input
+                      readOnly
+                      value={time}
+                      className="w-full pr-10 border-gray-300 text-[#666666] cursor-pointer"
+                    />
+                    <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666]" />
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <TimePicker value={time} onChange={setTime} />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* 회의 기록 방식 */}
+          <div className="mb-4">
+            <label className="text-sm font-semibold text-[#000000] block mb-2">
+              회의 기록 방식
             </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-[#000000]">
-              <input
-                type="radio"
-                checked={recordType === 'RECORD'}
-                onChange={() => setRecordType('RECORD')}
-              />
-              파일 업로드
-            </label>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-[#000000]">
+                <input
+                  type="radio"
+                  checked={recordType === 'REALTIME'}
+                  onChange={() => setRecordType('REALTIME')}
+                />
+                실시간 녹음
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-[#000000]">
+                <input
+                  type="radio"
+                  checked={recordType === 'RECORD'}
+                  onChange={() => setRecordType('RECORD')}
+                />
+                파일 업로드
+              </label>
+            </div>
           </div>
-        </div>
 
-        {/* 참석자 및 역할 */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center">
-            <label className="text-sm font-semibold text-[#000000]">참석자 및 역할</label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowMemberSelector(!showMemberSelector)}
-                className="text-sm text-[#000000] border border-gray-300 rounded-full px-3 py-0.5 hover:bg-gray-100"
-              >
-                팀원 선택
-              </button>
-              <div className="relative">
+          {/* 참석자 및 역할 */}
+          <div className="mb-4">
+            <div className="flex justify-between items-center">
+              <label className="text-sm font-semibold text-[#000000]">참석자 및 역할</label>
+              <div className="flex gap-2">
                 <button
-                  onClick={() => setIsAddingRole(!isAddingRole)}
+                  onClick={() => setShowMemberSelector(!showMemberSelector)}
                   className="text-sm text-[#000000] border border-gray-300 rounded-full px-3 py-0.5 hover:bg-gray-100"
                 >
-                  역할 추가
+                  팀원 선택
                 </button>
-                {isAddingRole && (
-                  <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-20 w-[160px] p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-[#000000] font-medium">새 역할</span>
-                      <button
-                        className="text-sm text-[#666666] hover:text-[#000000]"
-                        onClick={() => {
-                          setIsAddingRole(false);
-                          setNewRoleName('');
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    <Input
-                      value={newRoleName}
-                      onChange={(e) => setNewRoleName(e.target.value)}
-                      onKeyDown={handleRoleInputKeyPress}
-                      placeholder="새 역할 입력"
-                      className="w-full h-7 text-xs px-2 text-[#000000]"
-                      autoFocus
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 팀원 선택 드롭다운 */}
-          {showMemberSelector && (
-            <div className="mt-3 border border-gray-200 rounded-lg p-3 bg-gray-50">
-              <div className="text-xs text-[#666666] mb-2">팀원을 선택하세요:</div>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {teamMembers.length === 0 ? (
-                  <div className="text-sm text-[#666666]">팀원 정보를 불러오는 중...</div>
-                ) : (
-                  teamMembers.map((member) => {
-                    const isSelected = members.some((m) => m.userId === member.userId);
-                    return (
-                      <label
-                        key={member.userId}
-                        className="flex items-center gap-2 cursor-pointer w-full"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleMemberSelection(member)}
-                          className="accent-black flex-shrink-0"
-                        />
-                        <span className="text-sm text-[#000000] flex-1 min-w-0 truncate">
-                          {member.name}
-                        </span>
-                        {member.role && (
-                          <span className="text-xs text-[#666666] bg-gray-200 px-2 py-0.5 rounded-full flex-shrink-0">
-                            {member.role}
-                          </span>
-                        )}
-                      </label>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 선택된 참석자 표시 */}
-          {members.length > 0 && (
-            <div className="mt-3 space-y-3">
-              {/* 첫 번째 줄 */}
-              <div className="flex gap-3">
-                {members.slice(0, 2).map((member, i) => (
-                  <div
-                    key={i}
-                    className="w-[calc(50%-6px)] flex items-center justify-between px-4 py-2 bg-gray-100 rounded-full gap-2 relative"
+                <div className="relative">
+                  <button
+                    onClick={() => setIsAddingRole(!isAddingRole)}
+                    className="text-sm text-[#000000] border border-gray-300 rounded-full px-3 py-0.5 hover:bg-gray-100"
                   >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                    역할 추가
+                  </button>
+                  {isAddingRole && (
+                    <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-20 w-[160px] p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-[#000000] font-medium">새 역할</span>
+                        <button
+                          className="text-sm text-[#666666] hover:text-[#000000]"
+                          onClick={() => {
+                            setIsAddingRole(false);
+                            setNewRoleName('');
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <Input
+                        value={newRoleName}
+                        onChange={(e) => setNewRoleName(e.target.value)}
+                        onKeyDown={handleRoleInputKeyPress}
+                        placeholder="새 역할 입력"
+                        className="w-full h-7 text-xs px-2 text-[#000000]"
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 팀원 선택 드롭다운 */}
+            {showMemberSelector && (
+              <div className="mt-3 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="text-xs text-[#666666] mb-2">팀원을 선택하세요:</div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {teamMembers.length === 0 ? (
+                    <div className="text-sm text-[#666666]">팀원 정보를 불러오는 중...</div>
+                  ) : (
+                    teamMembers.map((member) => {
+                      const isSelected = members.some((m) => m.userId === member.userId);
+                      return (
+                        <label
+                          key={member.userId}
+                          className="flex items-center gap-2 cursor-pointer w-full"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleMemberSelection(member)}
+                            className="accent-black flex-shrink-0"
+                          />
+                          <span className="text-sm text-[#000000] flex-1 min-w-0 truncate">
+                            {member.name}
+                          </span>
+                          {member.role && (
+                            <span className="text-xs text-[#666666] bg-gray-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                              {member.role}
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 선택된 참석자 표시 */}
+            {members.length > 0 && (
+              <div className="mt-3 space-y-3">
+                {/* 첫 번째 줄 */}
+                <div className="flex gap-3">
+                  {members.slice(0, 2).map((member, i) => (
+                    <div
+                      key={i}
+                      className="w-[calc(50%-6px)] flex items-center justify-between px-4 py-2 bg-gray-100 rounded-full gap-2 relative"
+                    >
+                      {/* <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div className="w-5 h-5 rounded-full bg-gray-300 flex-shrink-0" />
                       <span className="text-sm text-[#000000] truncate">{member.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <div className="relative">
-                        <button
-                          onClick={() => setOpenRoleDropdown(openRoleDropdown === i ? null : i)}
-                          className={`text-xs font-semibold px-2 py-0.5 rounded-full hover:opacity-80 transition-all flex-shrink-0 max-w-[80px] truncate ${
-                            member.role ? getRoleColor(member.role) : 'bg-gray-200 text-gray-500'
-                          }`}
-                        >
-                          {member.role || '참석자'}
-                        </button>
-                        {openRoleDropdown === i && (
-                          <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[100px]">
-                            {roleOptions.map((role) => (
-                              <button
-                                key={role}
-                                onClick={() => updateMemberRole(i, role)}
-                                className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors"
+                    </div> */}
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {/* 여기! 기존 <div className="w-5 h-5 ..."/> 대신 아래로 교체 */}
+                        {(() => {
+                          const tm = teamMembers.find((tm) => tm.userId === member.userId);
+                          const profileImageUrl = tm?.profileImageUrl;
+                          if (
+                            profileImageUrl &&
+                            profileImageUrl !== 'null' &&
+                            profileImageUrl !== 'undefined' &&
+                            profileImageUrl.trim() !== '' &&
+                            profileImageUrl !== 'basic'
+                          ) {
+                            return (
+                              <img
+                                src={profileImageUrl}
+                                alt={member.name}
+                                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                              />
+                            );
+                          } else {
+                            // 이미지가 없거나 basic이면 노란색 동그라미 + 흰색 글자
+                            return (
+                              <div
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-xs flex-shrink-0"
+                                style={{ backgroundColor: '#FFD93D', color: '#fff' }}
                               >
-                                {role}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                                {member.name?.[0] || ''}
+                              </div>
+                            );
+                          }
+                        })()}
+                        <span className="text-sm text-[#000000] truncate">{member.name}</span>
                       </div>
-                      <button
-                        onClick={() => removeMember(i)}
-                        className="text-xs text-[#666666] hover:text-red-500 w-4 h-4 flex items-center justify-center"
-                        title="참석자 삭제"
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenRoleDropdown(openRoleDropdown === i ? null : i)}
+                            className={`text-xs font-semibold px-2 py-0.5 rounded-full hover:opacity-80 transition-all flex-shrink-0 max-w-[80px] truncate ${
+                              member.role ? getRoleColor(member.role) : 'bg-gray-200 text-gray-500'
+                            }`}
+                          >
+                            {member.role || '참석자'}
+                          </button>
+                          {openRoleDropdown === i && (
+                            <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[100px]">
+                              {roleOptions.map((role) => (
+                                <button
+                                  key={role}
+                                  onClick={() => updateMemberRole(i, role)}
+                                  className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors"
+                                >
+                                  {role}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => removeMember(i)}
+                          className="text-xs text-[#666666] hover:text-red-500 w-4 h-4 flex items-center justify-center"
+                          title="참석자 삭제"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {/* 첫 번째 줄에 하나만 있을 경우 빈 공간 */}
+                  {members.slice(0, 2).length === 1 && <div className="w-[calc(50%-6px)]"></div>}
+                </div>
+
+                {/* 두 번째 줄 */}
+                {members.length > 2 && (
+                  <div className="flex gap-3">
+                    {members.slice(2, 4).map((member, i) => (
+                      <div
+                        key={i + 2}
+                        className="w-[calc(50%-6px)] flex items-center justify-between px-4 py-2 bg-gray-100 rounded-full gap-2 relative"
                       >
-                        ✕
-                      </button>
-                    </div>
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="w-5 h-5 rounded-full bg-gray-300 flex-shrink-0" />
+                          <span className="text-sm text-[#000000] truncate">{member.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="relative">
+                            <button
+                              onClick={() =>
+                                setOpenRoleDropdown(openRoleDropdown === i + 2 ? null : i + 2)
+                              }
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-full hover:opacity-80 transition-all flex-shrink-0 max-w-[80px] truncate ${
+                                member.role
+                                  ? getRoleColor(member.role)
+                                  : 'bg-gray-200 text-gray-500'
+                              }`}
+                            >
+                              {member.role || '역할'}
+                            </button>
+                            {openRoleDropdown === i + 2 && (
+                              <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[100px]">
+                                {roleOptions.map((role) => (
+                                  <button
+                                    key={role}
+                                    onClick={() => updateMemberRole(i + 2, role)}
+                                    className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors"
+                                  >
+                                    {role}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeMember(i + 2)}
+                            className="text-xs text-[#666666] hover:text-red-500 w-4 h-4 flex items-center justify-center"
+                            title="참석자 삭제"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {/* 두 번째 줄에 하나만 있을 경우 빈 공간 */}
+                    {members.slice(2, 4).length === 1 && <div className="w-[calc(50%-6px)]"></div>}
                   </div>
-                ))}
-                {/* 첫 번째 줄에 하나만 있을 경우 빈 공간 */}
-                {members.slice(0, 2).length === 1 && <div className="w-[calc(50%-6px)]"></div>}
+                )}
+
+                {/* 세 번째 줄 (5명 이상일 경우) */}
+                {members.length > 4 && (
+                  <div className="flex gap-3">
+                    {members.slice(4, 6).map((member, i) => (
+                      <div
+                        key={i + 4}
+                        className="w-[calc(50%-6px)] flex items-center justify-between px-4 py-2 bg-gray-100 rounded-full gap-2 relative"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="w-5 h-5 rounded-full bg-gray-300 flex-shrink-0" />
+                          <span className="text-sm text-[#000000] truncate">{member.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="relative">
+                            <button
+                              onClick={() =>
+                                setOpenRoleDropdown(openRoleDropdown === i + 4 ? null : i + 4)
+                              }
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-full hover:opacity-80 transition-all flex-shrink-0 max-w-[80px] truncate ${
+                                member.role
+                                  ? getRoleColor(member.role)
+                                  : 'bg-gray-200 text-gray-500'
+                              }`}
+                            >
+                              {member.role || '역할'}
+                            </button>
+                            {openRoleDropdown === i + 4 && (
+                              <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[100px]">
+                                {roleOptions.map((role) => (
+                                  <button
+                                    key={role}
+                                    onClick={() => updateMemberRole(i + 4, role)}
+                                    className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors"
+                                  >
+                                    {role}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeMember(i + 4)}
+                            className="text-xs text-[#666666] hover:text-red-500 w-4 h-4 flex items-center justify-center"
+                            title="참석자 삭제"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {/* 세 번째 줄에 하나만 있을 경우 빈 공간 */}
+                    {members.slice(4, 6).length === 1 && <div className="w-[calc(50%-6px)]"></div>}
+                  </div>
+                )}
               </div>
+            )}
 
-              {/* 두 번째 줄 */}
-              {members.length > 2 && (
-                <div className="flex gap-3">
-                  {members.slice(2, 4).map((member, i) => (
-                    <div
-                      key={i + 2}
-                      className="w-[calc(50%-6px)] flex items-center justify-between px-4 py-2 bg-gray-100 rounded-full gap-2 relative"
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="w-5 h-5 rounded-full bg-gray-300 flex-shrink-0" />
-                        <span className="text-sm text-[#000000] truncate">{member.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <div className="relative">
-                          <button
-                            onClick={() =>
-                              setOpenRoleDropdown(openRoleDropdown === i + 2 ? null : i + 2)
-                            }
-                            className={`text-xs font-semibold px-2 py-0.5 rounded-full hover:opacity-80 transition-all flex-shrink-0 max-w-[80px] truncate ${
-                              member.role ? getRoleColor(member.role) : 'bg-gray-200 text-gray-500'
-                            }`}
-                          >
-                            {member.role || '역할'}
-                          </button>
-                          {openRoleDropdown === i + 2 && (
-                            <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[100px]">
-                              {roleOptions.map((role) => (
-                                <button
-                                  key={role}
-                                  onClick={() => updateMemberRole(i + 2, role)}
-                                  className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors"
-                                >
-                                  {role}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => removeMember(i + 2)}
-                          className="text-xs text-[#666666] hover:text-red-500 w-4 h-4 flex items-center justify-center"
-                          title="참석자 삭제"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {/* 두 번째 줄에 하나만 있을 경우 빈 공간 */}
-                  {members.slice(2, 4).length === 1 && <div className="w-[calc(50%-6px)]"></div>}
-                </div>
-              )}
+            {/* 참석자가 없을 때 안내 메시지 */}
+            {members.length === 0 && (
+              <div className="mt-3 text-center py-4 text-sm text-[#666666]">
+                팀원 선택 버튼을 눌러 참석자를 추가해주세요
+              </div>
+            )}
+          </div>
 
-              {/* 세 번째 줄 (5명 이상일 경우) */}
-              {members.length > 4 && (
-                <div className="flex gap-3">
-                  {members.slice(4, 6).map((member, i) => (
-                    <div
-                      key={i + 4}
-                      className="w-[calc(50%-6px)] flex items-center justify-between px-4 py-2 bg-gray-100 rounded-full gap-2 relative"
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="w-5 h-5 rounded-full bg-gray-300 flex-shrink-0" />
-                        <span className="text-sm text-[#000000] truncate">{member.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <div className="relative">
-                          <button
-                            onClick={() =>
-                              setOpenRoleDropdown(openRoleDropdown === i + 4 ? null : i + 4)
-                            }
-                            className={`text-xs font-semibold px-2 py-0.5 rounded-full hover:opacity-80 transition-all flex-shrink-0 max-w-[80px] truncate ${
-                              member.role ? getRoleColor(member.role) : 'bg-gray-200 text-gray-500'
-                            }`}
-                          >
-                            {member.role || '역할'}
-                          </button>
-                          {openRoleDropdown === i + 4 && (
-                            <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[100px]">
-                              {roleOptions.map((role) => (
-                                <button
-                                  key={role}
-                                  onClick={() => updateMemberRole(i + 4, role)}
-                                  className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors"
-                                >
-                                  {role}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => removeMember(i + 4)}
-                          className="text-xs text-[#666666] hover:text-red-500 w-4 h-4 flex items-center justify-center"
-                          title="참석자 삭제"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {/* 세 번째 줄에 하나만 있을 경우 빈 공간 */}
-                  {members.slice(4, 6).length === 1 && <div className="w-[calc(50%-6px)]"></div>}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 참석자가 없을 때 안내 메시지 */}
-          {members.length === 0 && (
-            <div className="mt-3 text-center py-4 text-sm text-[#666666]">
-              팀원 선택 버튼을 눌러 참석자를 추가해주세요
-            </div>
-          )}
-        </div>
-
-        {/* 회의 안건 */}
-        {/* <div className="mb-6">
+          {/* 회의 안건 */}
+          {/* <div className="mb-6">
           <div className="flex justify-between items-center">
             <label className="text-sm font-semibold text-[#000000]">회의 안건</label>
             <button className="text-sm text-[#000000]">추가</button>
@@ -796,59 +866,58 @@ export default function MeetingCreateModal({
             rows={3}
           />
         </div> */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <label className="text-sm font-semibold text-[#000000]">회의 안건</label>
-            <button
-              onClick={addAgendaItem}
-              className="text-sm text-[#000000] border border-gray-300 rounded-full px-3 py-0.5 hover:bg-gray-100"
-            >
-              추가
-            </button>
-          </div>
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-semibold text-[#000000]">회의 안건</label>
+              <button
+                onClick={addAgendaItem}
+                className="text-sm text-[#000000] border border-gray-300 rounded-full px-3 py-0.5 hover:bg-gray-100"
+              >
+                추가
+              </button>
+            </div>
 
-          <div className="border border-gray-300 rounded-2xl px-5 py-4">
-            <div className="space-y-4">
-              {agendaItems.map((item, index) => (
-                <div key={index}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 border-2 border-[#666666] rounded-full mr-3"></div>
-                      <input
-                        type="text"
-                        value={item.type}
-                        onChange={(e) => updateAgendaItem(index, 'type', e.target.value)}
-                        className="text-sm text-[#000000] bg-transparent border-none outline-none font-medium placeholder:text-[#CCCCCC]"
-                        placeholder="안건 제목"
-                      />
+            <div className="border border-gray-300 rounded-2xl px-5 py-4">
+              <div className="space-y-4">
+                {agendaItems.map((item, index) => (
+                  <div key={index}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 border-2 border-[#666666] rounded-full mr-3"></div>
+                        <input
+                          type="text"
+                          value={item.type}
+                          onChange={(e) => updateAgendaItem(index, 'type', e.target.value)}
+                          className="text-sm text-[#000000] bg-transparent border-none outline-none font-medium placeholder:text-[#CCCCCC]"
+                          placeholder="안건 제목"
+                        />
+                      </div>
+                      {agendaItems.length > 1 && (
+                        <button
+                          onClick={() => removeAgendaItem(index)}
+                          className="text-sm text-[#666666] hover:text-[#000000]"
+                          title="안건 삭제"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
-                    {agendaItems.length > 1 && (
-                      <button
-                        onClick={() => removeAgendaItem(index)}
-                        className="text-sm text-[#666666] hover:text-[#000000]"
-                        title="안건 삭제"
-                      >
-                        ✕
-                      </button>
-                    )}
+
+                    <textarea
+                      value={item.content}
+                      onChange={(e) => updateAgendaItem(index, 'content', e.target.value)}
+                      placeholder="안건에 대한 메모를 작성하세요"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#666666] placeholder:text-[#CCCCCC] resize-none bg-gray-50"
+                      rows={2}
+                    />
+
+                    {/* 안건 구분선 (마지막 안건이 아닐 경우) */}
+                    {index < agendaItems.length - 1 && <hr className="my-4 border-gray-200" />}
                   </div>
-
-                  <textarea
-                    value={item.content}
-                    onChange={(e) => updateAgendaItem(index, 'content', e.target.value)}
-                    placeholder="안건에 대한 메모를 작성하세요"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#666666] placeholder:text-[#CCCCCC] resize-none bg-gray-50"
-                    rows={2}
-                  />
-
-                  {/* 안건 구분선 (마지막 안건이 아닐 경우) */}
-                  {index < agendaItems.length - 1 && <hr className="my-4 border-gray-200" />}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-
         </div>
 
         {/* 버튼 */}
