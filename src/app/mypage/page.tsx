@@ -1,5 +1,3 @@
-// src/app/mypage/page.jsx
-
 'use client';
 
 import MainLayout from '@/components/layout/MainLayout';
@@ -12,8 +10,7 @@ import PrivacyPolicyModal from './PrivacyPolicyModal';
 import WithdrawalConfirmModal from './WithdrawModal';
 import LogoutConfirmModal from './LogoutModal';
 
-// API 호출 함수들을 가져옵니다.
-import { getUserProfile, updateUserProfile } from '@/api/user'; // updateUserProfile 함수를 import합니다.
+import { getUserProfile, updateUserProfile } from '@/api/user';
 import { logout } from '@/api/auth';
 import axiosInstance from '@/lib/axiosInstance';
 
@@ -30,6 +27,7 @@ export default function MyPage() {
     email: '',
     department: '',
     position: '',
+    profileImageUrl: null,
   });
 
   useEffect(() => {
@@ -48,12 +46,9 @@ export default function MyPage() {
   }, [router]);
 
   const handleSaveProfile = async (updatedData) => {
-    // 함수를 비동기(async)로 만듭니다.
     try {
-      // API 호출을 통해 백엔드 서버의 프로필 정보를 업데이트합니다.
       const responseData = await updateUserProfile(updatedData);
 
-      // 서버에서 반환된 최신 데이터로 프런트엔드 상태를 업데이트합니다.
       setProfileData(responseData.data);
 
       setIsProfileModalOpen(false);
@@ -66,7 +61,6 @@ export default function MyPage() {
 
   const handleWithdrawalConfirm = async () => {
     try {
-      // ✨ Change the URL to match the backend's path
       await axiosInstance.delete('/api/v1/users/me/withdrawal');
 
       localStorage.removeItem('accessToken');
@@ -102,10 +96,25 @@ export default function MyPage() {
     <MainLayout>
       <div className="min-h-screen bg-gray-100 p-6">
         {/* 프로필 섹션 */}
-        <div className="bg-[#E3CD64] rounded-lg p-6 mb-6 flex items-center justify-between shadow-md">
+        <div className="bg-[#FFD93D] rounded-lg p-6 mb-6 flex items-center justify-between shadow-md">
           <div className="flex items-center">
-            <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center text-4xl text-gray-600 mr-4 overflow-hidden">
-              👤
+            <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center mr-4 overflow-hidden">
+              {profileData.profileImageUrl && profileData.profileImageUrl !== 'basic' ? (
+                <img
+                  src={profileData.profileImageUrl}
+                  alt={`${profileData.name}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.onerror = null;
+                    target.src = '';
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray text-white font-bold text-lg rounded-full">
+                  <span className="text-4xl text-gray-600">👤</span>
+                </div>
+              )}
             </div>
             <div>
               <div className="text-xl font-bold text-gray-800">{profileData.name}</div>

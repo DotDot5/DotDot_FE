@@ -1,4 +1,3 @@
-// components/LogoutConfirmModal.jsx
 'use client';
 
 import React from 'react';
@@ -28,7 +27,7 @@ export default function LogoutConfirmModal({ isOpen, onClose, onConfirm }) {
           <button
             type="button"
             onClick={onConfirm}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            className="bg-[#FFD93D] hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           >
             로그아웃
           </button>
