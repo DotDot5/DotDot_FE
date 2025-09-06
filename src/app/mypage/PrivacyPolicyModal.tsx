@@ -1,10 +1,8 @@
-// components/PrivacyPolicyModal.jsx
 'use client';
 
 import React from 'react';
 
 export default function PrivacyPolicyModal({ isOpen, onClose }) {
-  // title, content prop 제거
   if (!isOpen) return null;
 
   const privacyPolicyContent = `
@@ -63,7 +61,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            className="bg-[#FFD93D] hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           >
             확인
           </button>
