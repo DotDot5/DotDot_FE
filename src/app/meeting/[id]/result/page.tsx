@@ -449,10 +449,6 @@ export default function MeetingPage() {
           </div>
 
           <div className="flex gap-2 mt-4">
-            <Button variant="outline" className="text-sm px-4 py-1 hover:bg-gray-100">
-              수정
-            </Button>
-
             <Button
               onClick={onClickEmailButton}
               className="text-sm px-4 py-1 bg-[#FFD93D] text-white hover:bg-[#ffcf0a]"
