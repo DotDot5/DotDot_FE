@@ -41,7 +41,7 @@ export default function MyCalendar({
 
   return (
     <div className="flex flex-col items-center p-4">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-xl">
         <div className="bg-yellow-400 rounded-t-lg p-4 text-left">
           <h1 className="text-white text-lg font-bold">{teamName} 팀의 워크스페이스</h1>
         </div>
@@ -50,7 +50,7 @@ export default function MyCalendar({
             <h2 className="text-xl font-bold text-gray-900">팀 작업 캘린더</h2>
             <button
               onClick={() => onViewMonthTasks(currentMonth)}
-              className="ml-2 px-3 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="ml-2 px-6 py-3 bg-blue-500 text-white text-lg rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               이번 달 작업 보기
             </button>

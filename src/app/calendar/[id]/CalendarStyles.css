@@ -1,18 +1,12 @@
-/* src/components/CalendarStyles.css */
-
-/* 전체 캘린더 컨테이너 */
 .my-custom-calendar {
-  /* Calendar.tsx에서 지정한 커스텀 클래스 */
   width: 100%;
-  max-width: 500px; /* 이미지와 유사한 너비 (조정 필요) */
-  border: 1px solid #e2e8f0; /* Tailwind gray-200 */
-  border-radius: 0.75rem; /* rounded-xl */
-  box-shadow:
-    0 1px 3px 0 rgb(0 0 0 / 0.1),
-    0 1px 2px -1px rgb(0 0 0 / 0.1); /* shadow-sm */
-  background-color: #fff; /* bg-white */
-  padding: 1rem; /* 캘린더 내부 여백 */
-  font-family: 'Pretendard', sans-serif, system-ui; /* 사용 폰트에 맞게 변경 */
+  max-width: 500px;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  background-color: #fff;
+  padding: 1rem;
+  font-family: 'Pretendard', sans-serif, system-ui;
   color: #333; /* 기본 텍스트 색상 */
 }
 

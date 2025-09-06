@@ -43,7 +43,7 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
     queryClient.invalidateQueries({ queryKey: ['pastMeetings', teamId] });
     onRefreshMeetings?.(); // 부모 컴포넌트의 갱신 함수도 호출
   };
-  
+
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
