@@ -35,8 +35,18 @@ axiosInstance.interceptors.response.use(
     const status = error.response?.status;
     const errorCode = error.response?.data?.code;
 
+    // 디버깅
+    console.log('Axios Interceptor Error:', error.response);
+    console.log('Status:', status);
+    console.log('Error Code:', errorCode);
+    // 디버깅
+
     // 401 + USER-003 (refresh 대상) + 첫 시도일 때
-    if (status === 401 && errorCode === 'USER-003' && !originalRequest._retry) {
+    if (
+      status === 401 &&
+      (errorCode === 'USER-003' || errorCode === 'USER-006') &&
+      !originalRequest._retry
+    ) {
       originalRequest._retry = true;
 
       try {
