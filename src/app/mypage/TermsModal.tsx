@@ -1,13 +1,10 @@
-// components/TermsModal.jsx
 'use client';
 
 import React from 'react';
 
 export default function TermsModal({ isOpen, onClose, title }) {
-  // content prop 제거
   if (!isOpen) return null;
 
-  // 약관 텍스트를 모달 컴포넌트 내부에 직접 정의
   const termsContent = `
     제1조 (목적)
     본 약관은 [회사 이름] (이하 "회사")이 운영하는 [서비스 이름] (이하 "서비스")의 이용과 관련하여 회사와 회원의 권리, 의무 및 책임 사항, 서비스 이용 조건 및 절차 등 기본적인 사항을 규정함을 목적으로 합니다.
@@ -102,7 +99,7 @@ export default function TermsModal({ isOpen, onClose, title }) {
 
     부칙
     본 약관은 [발효일: 2024년 7월 10일]부터 적용됩니다.
-  `.trim(); // 시작과 끝의 불필요한 공백 제거
+  `.trim();
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 backdrop-blur-sm">
@@ -122,7 +119,7 @@ export default function TermsModal({ isOpen, onClose, title }) {
           <button
             type="button"
             onClick={onClose}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            className="bg-[#FFD93D] hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           >
             확인
           </button>

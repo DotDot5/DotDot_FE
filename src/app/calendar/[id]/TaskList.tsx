@@ -299,14 +299,22 @@ export default function TaskList({
               <label htmlFor="taskAssignee" className="block text-sm font-medium text-gray-700">
                 담당자*
               </label>
-              <input
-                type="text"
+              <select
                 id="taskAssignee"
                 name="taskAssignee"
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-yellow-400 focus:border-yellow-400 sm:text-sm"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 sm:text-sm"
                 required
                 defaultValue={editingTask?.assignee || ''}
-              />
+              >
+                <option value="" disabled hidden>
+                  담당자를 선택해주세요
+                </option>
+                {teamMembers.map((member) => (
+                  <option key={member.userId} value={member.name}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex-1">
               <label htmlFor="taskPriority" className="block text-sm font-medium text-gray-700">
