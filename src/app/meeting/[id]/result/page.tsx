@@ -206,7 +206,7 @@ export default function MeetingPage() {
     items: taskItems = [],
     summary: taskSummary,
     isLoading: loadingTasks,
-  } = useTasks(teamId, { meetingId, date: meetingDateYMD, page: 0, size: 10, sort: 'status,asc' });
+  } = useTasks(teamId, { meetingId, page: 0, size: 10, sort: 'status,asc' });
 
   useEffect(() => {
     console.log('[dbg] summary=', summary);
