@@ -21,7 +21,7 @@ export default function DashboardPage() {
     const fetchMeetings = async () => {
       try {
         const past = await getMyMeetingList('finished', 'desc'); // 최근 순
-        const upcoming = await getMyMeetingList('upcoming', 'asc'); // 가까운 순
+        const upcoming = await getMyMeetingList('scheduled', 'asc'); // 가까운 순
         setPastMeetings(past);
         setUpcomingMeetings(upcoming);
       } catch (error: any) {

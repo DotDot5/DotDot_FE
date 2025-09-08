@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { getMeetingDetail, getMeetingSttResult, MeetingSttResultResponse } from '@/api/meeting';
 import SummarySection from '@/components/SummarySection';
-import ResourcesSection from '@/components/RecommandSection';
+
 import EnhancedAudioPlayer, { AudioPlayerHandle } from '@/components/EnhancedAudioPlayer';
 import ScriptTranscript from '@/components/ScriptTranscript';
 import { useMeetingSummary, useMeetingRecommendations } from '@/hooks/useMeeting';
@@ -15,9 +15,12 @@ interface AgendaItem {
   body: string;
 }
 
+// 화면에서 쓸 표준 모델
 interface Participant {
   id: number;
   name: string;
+  part?: string;
+  speakerIndex?: number;
 }
 
 interface MeetingDetailResponse {
@@ -28,15 +31,34 @@ interface MeetingDetailResponse {
   note: string;
   meetingMethod: 'RECORD' | 'REALTIME';
   teamId: number;
-  duration: number; // DB에서 받아올 오디오 길이
+  duration?: number;
 }
 
-interface SpeechLogDto {
+type ParticipantApi = {
+  userId: number;
+  userName: string;
+  part: string;
   speakerIndex: number;
-  text: string;
-  startTime: number;
-  endTime: number;
-}
+};
+
+type AgendaApi = { agenda: string; body: string };
+
+type MeetingDetailApiData = {
+  meetingId: number;
+  teamId: number;
+  title: string;
+  meetingAt: string;
+  meetingMethod: string;
+  note: string;
+  participants: ParticipantApi[];
+  agendas: AgendaApi[];
+};
+
+type MeetingDetailApiResponse = {
+  status: string;
+  timestamp: string;
+  data: MeetingDetailApiData;
+};
 
 export default function MeetingDetailPage() {
   const params = useParams();
@@ -72,18 +94,32 @@ export default function MeetingDetailPage() {
       return;
     }
 
+    const normalizeMethod = (m: string): 'RECORD' | 'REALTIME' =>
+      m === 'REALTIME' ? 'REALTIME' : 'RECORD';
+
     const fetchData = async () => {
       if (!meetingId) return;
       setLoading(true);
       setError(null);
       try {
-        const detail = await getMeetingDetail(meetingId);
-        setMeetingDetail(detail);
+        const detailAny = await getMeetingDetail(meetingId);
+
+        const raw: any =
+          detailAny && typeof detailAny === 'object' && 'data' in detailAny
+            ? (detailAny as any).data
+            : detailAny;
+
+        if (!raw) {
+          throw new Error('Invalid meeting detail response');
+        }
+
+        const normalizeMethod = (m: string | undefined | null): 'RECORD' | 'REALTIME' =>
+          m === 'REALTIME' ? 'REALTIME' : 'RECORD';
 
         const stt = await getMeetingSttResult(meetingId);
         setSttResult(stt);
 
-        if (stt.audioId) {
+        if (stt?.audioId) {
           if (stt.audioId.startsWith('gs://') || stt.audioId.startsWith('https://')) {
             try {
               const audioResponse = await fetch(
@@ -103,6 +139,28 @@ export default function MeetingDetailPage() {
             setAudioUrl(stt.audioId);
           }
         }
+
+        const mapped: MeetingDetailResponse = {
+          title: raw.title,
+          meetingAt: raw.meetingAt,
+          meetingMethod: normalizeMethod(raw.meetingMethod),
+          note: raw.note ?? '',
+          teamId: raw.teamId,
+          agendas: Array.isArray(raw.agendas)
+            ? raw.agendas.map((a: any) => ({ agenda: a.agenda, body: a.body }))
+            : [],
+          participants: Array.isArray(raw.participants)
+            ? raw.participants.map((p: any) => ({
+                id: p.userId ?? p.id,
+                name: p.userName ?? p.name ?? '',
+                part: p.part,
+                speakerIndex: p.speakerIndex,
+              }))
+            : [],
+          duration: raw.duration,
+        };
+
+        setMeetingDetail(mapped);
       } catch (err: any) {
         console.error('데이터 불러오기 실패:', err);
         setError('회의 정보를 불러오는 데 실패했습니다.');
@@ -121,7 +179,6 @@ export default function MeetingDetailPage() {
     setCurrentAudioTime(time);
   };
 
-  // ref를 통해 플레이어의 seekToTime 함수를 직접 호출
   const handleScriptClick = (time: number) => {
     audioPlayerRef.current?.seekToTime(time);
   };

@@ -33,6 +33,7 @@ import {
   createRecommendations,
   getMeetingSttResult,
   createTeamTask,
+  updateMeetingStatus,
 } from '@/api/meeting';
 import type { MeetingParticipant, UpdateMeetingRequest } from '@/api/meeting';
 import { getTeamMembers } from '@/api/team';
@@ -75,8 +76,8 @@ const ParticipantsList = ({ participants }: { participants: Participant[] }) => 
             {participant.name
               ? participant.name.charAt(0).toUpperCase()
               : participant.email
-              ? participant.email.charAt(0).toUpperCase()
-              : '?'}
+                ? participant.email.charAt(0).toUpperCase()
+                : '?'}
           </div>
           <div className="flex-1">
             <div className="font-medium text-sm text-gray-900">
@@ -630,7 +631,10 @@ export default function MeetingDetailPage() {
       // 6) 챗봇 세션 종료(TTL)
       await endChatbot(meetingId);
 
-      // 7) 결과 페이지 이동
+      // 7) 회의 상태 변경
+      await updateMeetingStatus(Number(meetingId), 'FINISHED');
+
+      // 8) 결과 페이지 이동
       const query = new URLSearchParams({
         title: encodeURIComponent(meetingTitle),
         date: encodeURIComponent(meetingDate),

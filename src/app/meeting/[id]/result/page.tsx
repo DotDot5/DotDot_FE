@@ -206,7 +206,7 @@ export default function MeetingPage() {
     items: taskItems = [],
     summary: taskSummary,
     isLoading: loadingTasks,
-  } = useTasks(teamId, { meetingId, date: meetingDateYMD, page: 0, size: 10, sort: 'status,asc' });
+  } = useTasks(teamId, { meetingId, page: 0, size: 10, sort: 'status,asc' });
 
   useEffect(() => {
     console.log('[dbg] summary=', summary);
@@ -262,17 +262,24 @@ export default function MeetingPage() {
         )
         .join('') || '<p>등록된 작업이 없습니다.</p>';
 
-    const recsHtml =
-      recList
-        .map(
-          (r) => `
-   <div class="recommendation-item">
-     <h3>${r.title}</h3>
-     <p>URL : ${r.url}</p>
-     ${r.description ? `<p>${r.description}</p>` : ''}
-   </div>`
-        )
-        .join('') || '<p>추천 자료가 없습니다.</p>';
+    const toAbsUrl = (u: string) => (/^https?:\/\//i.test(u) ? u : `https://${u}`);
+
+    const recsHtml = recList?.length
+      ? recList
+          .map(
+            (r) => `
+              <div class="recommendation-item">
+                <h3>
+                  <a href="${toAbsUrl(r.url)}" target="_blank" rel="noopener noreferrer">
+                    ${r.title}
+                  </a>
+                </h3>
+                ${r.description ? `<p>${r.description}</p>` : ''}
+              </div>
+            `
+          )
+          .join('')
+      : '<p>추천 자료가 없습니다.</p>';
 
     const section = (title: string, inner: string) => `
       <div class="section">
@@ -449,10 +456,6 @@ export default function MeetingPage() {
           </div>
 
           <div className="flex gap-2 mt-4">
-            <Button variant="outline" className="text-sm px-4 py-1 hover:bg-gray-100">
-              수정
-            </Button>
-
             <Button
               onClick={onClickEmailButton}
               className="text-sm px-4 py-1 bg-[#FFD93D] text-white hover:bg-[#ffcf0a]"
