@@ -28,6 +28,8 @@ export interface MeetingParticipant {
 export interface MeetingParticipantWithName extends MeetingParticipant {
   userName: string; // 추가된 필드: 사용자 이름
   email: string;
+  profileImageUrl?: string | null;
+  name?: string;
 }
 
 export interface MeetingAgenda {
@@ -196,6 +198,44 @@ export const getMeetingSttResult = async (meetingId: number): Promise<MeetingStt
 };
 
 // 회의 상세 조회 (참석자 이메일 포함)
+// export const getMeetingDetailWithParticipantEmails = async (
+//   meetingId: number
+// ): Promise<MeetingDetail & { participants: MeetingParticipantWithName[] }> => {
+//   const meetingDetail = await getMeetingDetail(meetingId);
+
+//   try {
+//     const teamMembers = await getTeamMembers(String(meetingDetail.teamId));
+
+//     const participantsWithEmail = meetingDetail.participants.map((participant) => {
+//       const teamMember = teamMembers.find((member) => member.userId === participant.userId);
+
+//       return {
+//         ...participant,
+//         email: teamMember?.email || `user${participant.userId}@unknown.com`,
+//         userName: teamMember?.name || participant.userName,
+//         name: teamMember?.name || participant.userName,
+//       };
+//     });
+
+//     return {
+//       ...meetingDetail,
+//       participants: participantsWithEmail,
+//     };
+//   } catch (error) {
+//     console.error('팀원 정보 조회 실패:', error);
+
+//     const participantsWithPlaceholderEmail = meetingDetail.participants.map((participant) => ({
+//       ...participant,
+//       email: `user${participant.userId}@placeholder.com`,
+//     }));
+
+//     return {
+//       ...meetingDetail,
+//       participants: participantsWithPlaceholderEmail,
+//     };
+//   }
+// };
+// 회의 상세 조회 (참석자 이메일 포함)
 export const getMeetingDetailWithParticipantEmails = async (
   meetingId: number
 ): Promise<MeetingDetail & { participants: MeetingParticipantWithName[] }> => {
@@ -204,35 +244,37 @@ export const getMeetingDetailWithParticipantEmails = async (
   try {
     const teamMembers = await getTeamMembers(String(meetingDetail.teamId));
 
-    const participantsWithEmail = meetingDetail.participants.map((participant) => {
-      const teamMember = teamMembers.find((member) => member.userId === participant.userId);
+    const participantsWithEmail: MeetingParticipantWithName[] =
+      meetingDetail.participants.map((participant) => {
+        const teamMember = teamMembers.find((m) => m.userId === participant.userId);
 
-      return {
-        ...participant,
-        email: teamMember?.email || `user${participant.userId}@unknown.com`,
-        userName: teamMember?.name || participant.userName,
-        name: teamMember?.name || participant.userName,
-      };
-    });
+        return {
+          ...participant,
+          email: teamMember?.email || `user${participant.userId}@unknown.com`,
+          userName: teamMember?.name ?? participant.userName,
+          name: teamMember?.name ?? participant.userName, // (프론트 호환)
+          profileImageUrl:
+            teamMember?.profileImageUrl ?? participant.profileImageUrl ?? null, // ⬅️ 추가
+        };
+      });
 
-    return {
-      ...meetingDetail,
-      participants: participantsWithEmail,
-    };
+    return { ...meetingDetail, participants: participantsWithEmail };
   } catch (error) {
     console.error('팀원 정보 조회 실패:', error);
 
-    const participantsWithPlaceholderEmail = meetingDetail.participants.map((participant) => ({
-      ...participant,
-      email: `user${participant.userId}@placeholder.com`,
-    }));
+    const participantsWithPlaceholderEmail: MeetingParticipantWithName[] =
+      meetingDetail.participants.map((participant) => ({
+        ...participant,
+        email: `user${participant.userId}@placeholder.com`,
+        userName: participant.userName,
+        name: participant.userName,
+        profileImageUrl: participant.profileImageUrl ?? null, // ⬅️ 유지
+      }));
 
-    return {
-      ...meetingDetail,
-      participants: participantsWithPlaceholderEmail,
-    };
+    return { ...meetingDetail, participants: participantsWithPlaceholderEmail };
   }
 };
+
 
 export const getMeetingSummary = async (meetingId: number): Promise<MeetingSummaryResponse> => {
   const res = await axiosInstance.get<MeetingSummaryResponse>(

@@ -54,6 +54,8 @@ interface ChatMessage {
 interface Participant {
   id?: number;
   name?: string;
+  userName?: string; 
+  profileImageUrl?: string | null;
   email: string;
   role?: string;
   status?: 'accepted' | 'pending' | 'declined';
@@ -63,6 +65,39 @@ interface Participant {
 // const [postLabel, setPostLabel] = useState<string>('');
 
 // 참석자 정보를 표시하는 컴포넌트
+// const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
+//   if (!participants || participants.length === 0) {
+//     return <div className="text-gray-500">참석자 정보가 없습니다.</div>;
+//   }
+
+//   return (
+//     <div className="space-y-2">
+//       {participants.map((participant, index) => (
+//         <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+//           <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+//             {participant.name
+//               ? participant.name.charAt(0).toUpperCase()
+//               : participant.email
+//                 ? participant.email.charAt(0).toUpperCase()
+//                 : '?'}
+//           </div>
+//           <div className="flex-1">
+//             <div className="font-medium text-sm text-gray-900">
+//               {participant.name || '이름 없음'}
+//             </div>
+//             <div className="text-xs text-gray-600">{participant.email || '이메일 없음'}</div>
+//           </div>
+//           {/* 참석자 역할이나 상태가 있다면 표시 */}
+//           {participant.role && (
+//             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+//               {participant.role}
+//             </span>
+//           )}
+//         </div>
+//       ))}
+//     </div>
+//   );
+// };
 const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
   if (!participants || participants.length === 0) {
     return <div className="text-gray-500">참석자 정보가 없습니다.</div>;
@@ -70,29 +105,46 @@ const ParticipantsList = ({ participants }: { participants: Participant[] }) => 
 
   return (
     <div className="space-y-2">
-      {participants.map((participant, index) => (
-        <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-            {participant.name
-              ? participant.name.charAt(0).toUpperCase()
-              : participant.email
-                ? participant.email.charAt(0).toUpperCase()
-                : '?'}
-          </div>
-          <div className="flex-1">
-            <div className="font-medium text-sm text-gray-900">
-              {participant.name || '이름 없음'}
+      {participants.map((p, index) => {
+        const displayName = p.name ?? p.userName ?? '';
+        const initial = displayName
+          ? displayName.charAt(0).toUpperCase()
+          : p.email
+            ? p.email.charAt(0).toUpperCase()
+            : '?';
+        const avatarUrl =
+          p.profileImageUrl && p.profileImageUrl !== 'basic' ? p.profileImageUrl : null;
+
+        return (
+          <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center text-white text-sm font-medium shrink-0">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName || '프로필'}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    // 이미지 실패 시 이니셜 노출(부모 배경 + 텍스트)
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <span>{initial}</span>
+              )}
             </div>
-            <div className="text-xs text-gray-600">{participant.email || '이메일 없음'}</div>
+
+            <div className="flex-1">
+              <div className="font-medium text-sm text-gray-900">{displayName || '이름 없음'}</div>
+              <div className="text-xs text-gray-600">{p.email || '이메일 없음'}</div>
+            </div>
+
+            {p.role && (
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">{p.role}</span>
+            )}
           </div>
-          {/* 참석자 역할이나 상태가 있다면 표시 */}
-          {participant.role && (
-            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-              {participant.role}
-            </span>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
