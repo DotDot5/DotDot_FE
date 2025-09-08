@@ -1,15 +1,30 @@
 'use client';
 
 import { Button } from '@/components/internal/ui/button';
-import { CalendarIcon, Clock, Video } from 'lucide-react';
+import { CalendarIcon, Clock, Video, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getMeetingDetail, MeetingDetail, MeetingStatus, updateMeetingStatus } from '@/api/meeting';
+import {
+  getMeetingDetail,
+  MeetingDetail,
+  MeetingStatus,
+  updateMeetingStatus,
+  deleteMeeting,
+} from '@/api/meeting';
 import MeetingCreateModal from '@/components/meeting/MeetingCreateModal';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverClose,
+} from '@/components/internal/ui/popover';
+import ConfirmModal from '@/app/calendar/[id]/ConfirmModal';
+import { toast } from 'sonner';
 
 export default function MeetingInfoPage() {
   const [meetingDetail, setMeetingDetail] = useState<MeetingDetail | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  // const [confirmDeleteModalOpen, setConfirmDeleteModalOpen] = useState(false); // 삭제 확인 모달 상태
   const router = useRouter();
   const params = useParams();
   const meetingId = params.id as string;
@@ -73,6 +88,19 @@ export default function MeetingInfoPage() {
       : 'bg-gray-200 text-gray-500';
   };
 
+  // 회의 삭제 처리 함수
+  const handleDeleteMeeting = async () => {
+    if (!meetingDetail) return;
+    try {
+      await deleteMeeting(meetingDetail.meetingId);
+      toast.success('회의가 성공적으로 삭제되었습니다.');
+      router.push(`/team/${meetingDetail.teamId}`); // 팀 페이지로 이동
+    } catch (error) {
+      console.error('회의 삭제 실패:', error);
+      toast.error('회의 삭제에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
   if (!meetingDetail) return <div className="p-8">회의 정보를 불러오는 중입니다...</div>;
 
   return (
@@ -80,13 +108,44 @@ export default function MeetingInfoPage() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-semibold text-[#000000]">{meetingDetail.title}</h1>
 
-        <Button
-          variant="outline"
-          className="px-6 py-2 text-sm font-medium text-[#000000] border border-gray-300"
-          onClick={() => setModalOpen(true)}
-        >
-          수정하기
-        </Button>
+        {/* 회의 삭제 버튼 */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-gray-300 text-gray-500 hover:bg-red-50 hover:text-red-600"
+              aria-label="회의 삭제"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-4" align="end">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h4 className="font-semibold">회의 삭제</h4>
+                <p className="text-sm text-gray-600">
+                  정말로 이 회의를 삭제하시겠습니까?
+                  <br />이 작업은 되돌릴 수 없습니다.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <PopoverClose asChild>
+                  <Button variant="ghost" size="sm">
+                    취소
+                  </Button>
+                </PopoverClose>
+                <Button
+                  size="sm"
+                  className="bg-red-500 hover:bg-red-600 text-white"
+                  onClick={handleDeleteMeeting}
+                >
+                  삭제
+                </Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         {modalOpen && meetingDetail && (
           <MeetingCreateModal
@@ -120,6 +179,14 @@ export default function MeetingInfoPage() {
           />
         )}
       </div>
+
+      {/* <ConfirmModal
+        isOpen={confirmDeleteModalOpen}
+        onClose={() => setConfirmDeleteModalOpen(false)}
+        onConfirm={handleDeleteMeeting}
+        title="회의 삭제"
+        message="정말로 이 회의를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+      /> */}
 
       {/* 회의 정보 */}
       <section className="mb-6 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
