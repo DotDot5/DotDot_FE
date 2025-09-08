@@ -4,7 +4,7 @@ import { Button } from '@/components/internal/ui/button';
 import { CalendarIcon, Clock, Video } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getMeetingDetail, MeetingDetail } from '@/api/meeting';
+import { getMeetingDetail, MeetingDetail, MeetingStatus, updateMeetingStatus } from '@/api/meeting';
 import MeetingCreateModal from '@/components/meeting/MeetingCreateModal';
 
 export default function MeetingInfoPage() {
@@ -13,6 +13,29 @@ export default function MeetingInfoPage() {
   const router = useRouter();
   const params = useParams();
   const meetingId = params.id as string;
+  const [starting, setStarting] = useState(false);
+
+  const handleStartMeeting = async () => {
+    if (!meetingDetail) return;
+
+    try {
+      setStarting(true);
+
+      setMeetingDetail((md) => (md ? { ...md, status: 'IN_PROGRESS' as MeetingStatus } : md));
+
+      await updateMeetingStatus(Number(meetingId), 'IN_PROGRESS');
+
+      router.push(`/meeting/${meetingId}`); // 진행 화면으로 이동
+    } catch (e) {
+      // 롤백
+      setMeetingDetail((md) =>
+        md && md.status === 'IN_PROGRESS' ? { ...md, status: 'SCHEDULED' as MeetingStatus } : md
+      );
+      console.error(e);
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const fetchMeetingDetail = async () => {
     try {
@@ -192,9 +215,20 @@ export default function MeetingInfoPage() {
         </Button>
         <Button
           className="bg-[#FFD93D] hover:bg-yellow-400 text-white font-semibold px-6 py-2 text-sm"
-          onClick={() => router.push(`/meeting/${meetingId}`)}
+          onClick={handleStartMeeting}
+          disabled={
+            starting ||
+            meetingDetail?.status === 'IN_PROGRESS' ||
+            meetingDetail?.status === 'FINISHED'
+          }
         >
-          회의 시작
+          {meetingDetail?.status === 'IN_PROGRESS'
+            ? '진행 중'
+            : meetingDetail?.status === 'FINISHED'
+              ? '종료됨'
+              : starting
+                ? '시작 중...'
+                : '회의 시작'}
         </Button>
       </div>
     </div>
