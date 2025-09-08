@@ -115,7 +115,7 @@ export interface RecommendationResponse {
 // 회의 목록 조회
 export const getMeetings = async (
   teamId: string,
-  status: 'upcoming' | 'finished'
+  status: 'scheduled' | 'in_progress' | 'finished'
 ): Promise<Meeting[]> => {
   const res = await axiosInstance.get<ApiResponse<Meeting[]>>(`/api/v1/meetings/${teamId}/list`, {
     params: { status },
@@ -124,7 +124,7 @@ export const getMeetings = async (
 };
 
 export const getUpcomingMeetings = (teamId: string) => {
-  return getMeetings(teamId, 'upcoming');
+  return getMeetings(teamId, 'scheduled');
 };
 
 export const getPastMeetings = (teamId: string) => {
@@ -219,7 +219,6 @@ export const getMeetingDetailWithParticipantEmails = async (
     };
   }
 };
-
 
 export const getMeetingSummary = async (meetingId: number): Promise<MeetingSummaryResponse> => {
   const res = await axiosInstance.get<MeetingSummaryResponse>(
@@ -382,4 +381,3 @@ export const createRecommendations = async (meetingId: number, limit = 5): Promi
     { params: { limit } }
   );
 };
-
