@@ -244,8 +244,8 @@ export const getMeetingDetailWithParticipantEmails = async (
   try {
     const teamMembers = await getTeamMembers(String(meetingDetail.teamId));
 
-    const participantsWithEmail: MeetingParticipantWithName[] =
-      meetingDetail.participants.map((participant) => {
+    const participantsWithEmail: MeetingParticipantWithName[] = meetingDetail.participants.map(
+      (participant) => {
         const teamMember = teamMembers.find((m) => m.userId === participant.userId);
 
         return {
@@ -253,10 +253,10 @@ export const getMeetingDetailWithParticipantEmails = async (
           email: teamMember?.email || `user${participant.userId}@unknown.com`,
           userName: teamMember?.name ?? participant.userName,
           name: teamMember?.name ?? participant.userName, // (프론트 호환)
-          profileImageUrl:
-            teamMember?.profileImageUrl ?? participant.profileImageUrl ?? null, // ⬅️ 추가
+          profileImageUrl: teamMember?.profileImageUrl ?? participant.profileImageUrl ?? null, // ⬅️ 추가
         };
-      });
+      }
+    );
 
     return { ...meetingDetail, participants: participantsWithEmail };
   } catch (error) {
@@ -274,7 +274,6 @@ export const getMeetingDetailWithParticipantEmails = async (
     return { ...meetingDetail, participants: participantsWithPlaceholderEmail };
   }
 };
-
 
 export const getMeetingSummary = async (meetingId: number): Promise<MeetingSummaryResponse> => {
   const res = await axiosInstance.get<MeetingSummaryResponse>(
@@ -436,4 +435,9 @@ export const createRecommendations = async (meetingId: number, limit = 5): Promi
     null,
     { params: { limit } }
   );
+};
+
+// 회의 삭제
+export const deleteMeeting = async (meetingId: number): Promise<void> => {
+  await axiosInstance.delete(`/api/v1/meetings/${meetingId}`);
 };

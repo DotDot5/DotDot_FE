@@ -1,10 +1,24 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useParams } from 'next/navigation';
-import { getMeetingDetail, getMeetingSttResult, MeetingSttResultResponse } from '@/api/meeting';
+import { useRouter, useParams } from 'next/navigation';
+import {
+  getMeetingDetail,
+  getMeetingSttResult,
+  MeetingSttResultResponse,
+  deleteMeeting,
+} from '@/api/meeting';
 import SummarySection from '@/components/SummarySection';
-
+import { Button } from '@/components/internal/ui/button';
+import { Trash2 } from 'lucide-react';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverClose,
+} from '@/components/internal/ui/popover';
+import { toast } from 'sonner';
+import ConfirmModal from '@/app/calendar/[id]/ConfirmModal';
 import EnhancedAudioPlayer, { AudioPlayerHandle } from '@/components/EnhancedAudioPlayer';
 import ScriptTranscript from '@/components/ScriptTranscript';
 import { useMeetingSummary, useMeetingRecommendations } from '@/hooks/useMeeting';
@@ -24,6 +38,7 @@ interface Participant {
 }
 
 interface MeetingDetailResponse {
+  meetingId: number;
   title: string;
   meetingAt: string;
   participants: Participant[];
@@ -62,6 +77,7 @@ type MeetingDetailApiResponse = {
 
 export default function MeetingDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const meetingId = Number(params.meetingId);
   const [meetingDetail, setMeetingDetail] = useState<MeetingDetailResponse | null>(null);
   const [sttResult, setSttResult] = useState<MeetingSttResultResponse | null>(null);
@@ -69,6 +85,7 @@ export default function MeetingDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  // const [confirmDeleteModalOpen, setConfirmDeleteModalOpen] = useState(false);
 
   // EnhancedAudioPlayer의 함수를 호출하기 위한 ref 생성
   const audioPlayerRef = useRef<AudioPlayerHandle>(null);
@@ -141,6 +158,7 @@ export default function MeetingDetailPage() {
         }
 
         const mapped: MeetingDetailResponse = {
+          meetingId: raw.meetingId,
           title: raw.title,
           meetingAt: raw.meetingAt,
           meetingMethod: normalizeMethod(raw.meetingMethod),
@@ -181,6 +199,19 @@ export default function MeetingDetailPage() {
 
   const handleScriptClick = (time: number) => {
     audioPlayerRef.current?.seekToTime(time);
+  };
+
+  // 회의 삭제 핸들러 추가
+  const handleDeleteMeeting = async () => {
+    if (!meetingDetail) return;
+    try {
+      await deleteMeeting(meetingDetail.meetingId);
+      toast.success('회의록이 성공적으로 삭제되었습니다.');
+      router.push(`/team/${meetingDetail.teamId}`);
+    } catch (error) {
+      console.error('회의록 삭제 실패:', error);
+      toast.error('회의록 삭제에 실패했습니다. 다시 시도해주세요.');
+    }
   };
 
   if (loading) {
@@ -241,7 +272,46 @@ export default function MeetingDetailPage() {
           <div className="space-y-6">
             {/* 회의 기본 정보 */}
             <section>
-              <h2 className="text-2xl font-bold mb-2">{meetingDetail.title}</h2>
+              <div className="flex justify-between items-start mb-2">
+                <h2 className="text-2xl font-bold">{meetingDetail.title}</h2>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-300 text-gray-500 hover:bg-red-50 hover:text-red-600 flex-shrink-0"
+                      aria-label="회의록 삭제"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-4" align="end">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <h4 className="font-semibold">회의록 삭제</h4>
+                        <p className="text-sm text-gray-600">
+                          정말로 이 회의록을 삭제하시겠습니까?
+                          <br />이 작업은 되돌릴 수 없습니다.
+                        </p>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <PopoverClose asChild>
+                          <Button variant="ghost" size="sm">
+                            취소
+                          </Button>
+                        </PopoverClose>
+                        <Button
+                          size="sm"
+                          className="bg-red-500 hover:bg-red-600 text-white"
+                          onClick={handleDeleteMeeting}
+                        >
+                          삭제
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <p className="text-gray-500">{formatKoreanDate(meetingDetail.meetingAt)}</p>
 
               <div className="mt-4 space-y-3">

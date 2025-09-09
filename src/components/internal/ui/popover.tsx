@@ -5,6 +5,7 @@ import * as PopoverPrimitive from '@radix-ui/react-popover';
 
 export const Popover = PopoverPrimitive.Root;
 export const PopoverTrigger = PopoverPrimitive.Trigger;
+export const PopoverClose = PopoverPrimitive.Close;
 
 export const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
