@@ -44,7 +44,7 @@ export default function Header() {
   };
 
   return (
-    <header className="w-full h-16 bg-white flex justify-between items-center px-6 shadow">
+    <header className="w-full h-16 bg-white flex justify-between items-center px-6 shadow-md z-10">
       <Link href="/dashboard" className="flex items-center">
         <Image src="/assets/DotDot_logo.png" alt="DotDot 로고" width={120} height={40} priority />
       </Link>
