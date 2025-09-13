@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { getUserProfile } from '@/api/user';
 import { logout as apiLogout } from '@/api/auth';
@@ -43,10 +44,10 @@ export default function Header() {
   };
 
   return (
-    <header className="w-full h-16 bg-white flex justify-between items-center px-6 shadow">
-      <a href="/dashboard" className="text-xl font-bold text-yellow-500">
-        DotDot
-      </a>
+    <header className="w-full h-16 bg-white flex justify-between items-center px-6 shadow-md z-10">
+      <Link href="/dashboard" className="flex items-center">
+        <Image src="/assets/DotDot_logo.png" alt="DotDot 로고" width={120} height={40} priority />
+      </Link>
       <div className="flex items-center gap-4">
         {/* 텍스트 링크들 */}
         <div className="hidden sm:flex items-center text-sm text-[#666]">

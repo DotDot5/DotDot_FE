@@ -4,7 +4,7 @@ import { Home, Users } from 'lucide-react';
 
 export default function MenuBar() {
   return (
-    <aside className="w-60 h-full bg-white shadow-md p-4">
+    <aside className="w-60 h-full bg-white shadow-md p-4 z-8">
       <nav className="flex flex-col">
         {/* 홈 */}
         {/* <Link
