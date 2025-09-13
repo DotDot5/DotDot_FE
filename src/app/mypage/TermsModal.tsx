@@ -104,7 +104,7 @@ export default function TermsModal({ isOpen, onClose, title }) {
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 backdrop-blur-sm">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[80vh] flex flex-col">
-        <h3 className="text-xl font-bold mb-4 border-b pb-2">{title}</h3>
+        <h3 className="text-xl font-bold mb-4 border-b pb-2">서비스 이용약관</h3>
 
         {/* 스크롤 가능한 콘텐츠 영역 */}
         <div className="flex-grow overflow-y-auto text-gray-700 leading-relaxed pr-2">

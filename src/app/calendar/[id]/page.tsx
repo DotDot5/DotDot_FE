@@ -116,7 +116,7 @@ export default function TeamCalendarPage() {
           : newTaskData.status === '진행'
           ? 'PROCESSING'
           : 'TODO',
-      due: newTaskData.dueDate,
+      due: newTaskData.dueDate ? `${newTaskData.dueDate}T09:00:00` : null,
     };
     handleCRUD(createTask(teamId, requestData as TaskCreateRequest));
   };
@@ -138,7 +138,7 @@ export default function TeamCalendarPage() {
           : updatedTask.status === '진행'
           ? 'PROCESSING'
           : 'TODO',
-      due: updatedTask.dueDate,
+      due: updatedTask.dueDate ? `${updatedTask.dueDate}T00:00:00` : null,
     };
     handleCRUD(updateTask(updatedTask.id, requestData as any));
   };
