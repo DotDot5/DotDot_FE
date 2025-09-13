@@ -3,14 +3,12 @@
 import MainLayout from '@/components/layout/MainLayout';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
 import ProfileEditModal from './ProfileEditModal';
 import TermsModal from './TermsModal';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import WithdrawalConfirmModal from './WithdrawModal';
 import LogoutConfirmModal from './LogoutModal';
-
-import { getUserProfile, updateUserProfile } from '@/api/user';
+import { getUserProfile, updateUserProfile, updateProfileImage } from '@/api/user';
 import { logout } from '@/api/auth';
 import axiosInstance from '@/lib/axiosInstance';
 
@@ -45,27 +43,43 @@ export default function MyPage() {
     fetchProfile();
   }, [router]);
 
-  const handleSaveProfile = async (updatedData) => {
+  const handleSaveProfile = async (textData, imageAction) => {
     try {
-      const responseData = await updateUserProfile(updatedData);
+      let newImageUrl;
+
+      if (imageAction.file) {
+        const uploadResponse = await updateProfileImage(imageAction.file);
+        newImageUrl = uploadResponse.imageUrl;
+      } else if (imageAction.delete) {
+        newImageUrl = 'basic';
+      } else {
+        newImageUrl = profileData.profileImageUrl;
+      }
+
+      const finalProfileData = {
+        ...textData,
+        email: profileData.email,
+        profileImageUrl: newImageUrl,
+      };
+      console.log(finalProfileData);
+
+      const responseData = await updateUserProfile(finalProfileData);
 
       setProfileData(responseData.data);
-
-      setIsProfileModalOpen(false);
       alert('프로필이 성공적으로 업데이트되었습니다!');
     } catch (error) {
       console.error('프로필 업데이트 실패:', error);
       alert('프로필 업데이트 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    } finally {
+      setIsProfileModalOpen(false);
     }
   };
 
   const handleWithdrawalConfirm = async () => {
     try {
       await axiosInstance.delete('/api/v1/users/me/withdrawal');
-
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-
       alert('회원 탈퇴가 완료되었습니다.');
       setIsWithdrawalModalOpen(false);
       router.replace('/auth/login');
@@ -78,13 +92,10 @@ export default function MyPage() {
   const handleLogoutConfirm = async () => {
     try {
       await logout();
-
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-
       alert('성공적으로 로그아웃되었습니다.');
       setIsLogoutModalOpen(false);
-
       router.replace('/auth/login');
     } catch (error) {
       console.error('로그아웃 실패:', error);
@@ -95,23 +106,23 @@ export default function MyPage() {
   return (
     <MainLayout>
       <div className="min-h-screen bg-gray-100 p-6">
-        {/* 프로필 섹션 */}
         <div className="bg-[#FFD93D] rounded-lg p-6 mb-6 flex items-center justify-between shadow-md">
           <div className="flex items-center">
-            <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center mr-4 overflow-hidden">
+            <div
+              className={`w-20 h-20 rounded-full flex items-center justify-center mr-4 overflow-hidden ${
+                profileData.profileImageUrl && profileData.profileImageUrl !== 'basic'
+                  ? 'bg-white'
+                  : 'bg-gray-300'
+              }`}
+            >
               {profileData.profileImageUrl && profileData.profileImageUrl !== 'basic' ? (
                 <img
                   src={profileData.profileImageUrl}
-                  alt={`${profileData.name}`}
+                  alt={`${profileData.name}의 프로필`}
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.onerror = null;
-                    target.src = '';
-                  }}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray text-white font-bold text-lg rounded-full">
+                <div className="w-full h-full flex items-center justify-center bg-gray-200">
                   <span className="text-4xl text-gray-600">👤</span>
                 </div>
               )}
@@ -145,7 +156,6 @@ export default function MyPage() {
           </button>
         </div>
 
-        {/* 나머지 메뉴 목록 섹션 */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div
             className="flex justify-between items-center p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
@@ -259,7 +269,6 @@ export default function MyPage() {
         </div>
       </div>
 
-      {/* 프로필 수정 모달 */}
       <ProfileEditModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
@@ -267,23 +276,19 @@ export default function MyPage() {
         initialData={profileData}
       />
 
-      {/* 서비스 이용약관 전용 모달 */}
       <TermsModal isOpen={isTermsModalOpen} onClose={() => setIsTermsModalOpen(false)} />
 
-      {/* 개인정보처리방침 전용 모달 */}
       <PrivacyPolicyModal
         isOpen={isPrivacyModalOpen}
         onClose={() => setIsPrivacyModalOpen(false)}
       />
 
-      {/* 회원탈퇴 확인 전용 모달 */}
       <WithdrawalConfirmModal
         isOpen={isWithdrawalModalOpen}
         onClose={() => setIsWithdrawalModalOpen(false)}
         onConfirm={handleWithdrawalConfirm}
       />
 
-      {/* 로그아웃 확인 전용 모달 */}
       <LogoutConfirmModal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}

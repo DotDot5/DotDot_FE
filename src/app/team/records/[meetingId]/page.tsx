@@ -22,6 +22,7 @@ import ConfirmModal from '@/app/calendar/[id]/ConfirmModal';
 import EnhancedAudioPlayer, { AudioPlayerHandle } from '@/components/EnhancedAudioPlayer';
 import ScriptTranscript from '@/components/ScriptTranscript';
 import { useMeetingSummary, useMeetingRecommendations } from '@/hooks/useMeeting';
+import { useBookmark } from '@/hooks/useBookmark';
 import RecommandSection from '@/components/RecommandSection';
 
 interface AgendaItem {
@@ -86,8 +87,8 @@ export default function MeetingDetailPage() {
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   // const [confirmDeleteModalOpen, setConfirmDeleteModalOpen] = useState(false);
+  const { handleToggleBookmark, isBookmarked } = useBookmark(meetingId);
 
-  // EnhancedAudioPlayer의 함수를 호출하기 위한 ref 생성
   const audioPlayerRef = useRef<AudioPlayerHandle>(null);
 
   const { data: summary, isLoading: loadingSummary } = useMeetingSummary(meetingId);
@@ -96,7 +97,7 @@ export default function MeetingDetailPage() {
   const recList = useMemo(() => {
     if (Array.isArray(recs)) return recs;
     if (recs && Array.isArray((recs as any).data)) return (recs as any).data;
-    if (recs && !Array.isArray(recs)) return [recs as any]; // 요소 1개만 객체로 오는 경우
+    if (recs && !Array.isArray(recs)) return [recs as any];
     return [];
   }, [recs]);
 
@@ -105,6 +106,9 @@ export default function MeetingDetailPage() {
   }, [summary]);
 
   useEffect(() => {
+    console.log('환경변수 확인:');
+    console.log('NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
     if (isNaN(meetingId)) {
       setLoading(false);
       setError('잘못된 회의 ID입니다.');
@@ -214,6 +218,15 @@ export default function MeetingDetailPage() {
     }
   };
 
+  // 북마크 토글 핸들러
+  const handleBookmarkToggle = async (speechLogId: number) => {
+    try {
+      await handleToggleBookmark(speechLogId);
+    } catch (error) {
+      console.error('북마크 토글 실패:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full text-lg text-gray-600">
@@ -248,7 +261,9 @@ export default function MeetingDetailPage() {
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${year}년 ${month}월 ${day}일 (${dayOfWeek}) ${hours}:${minutes}`;
   };
+
   console.log('EnhancedAudioPlayer에 전달될 데이터 확인:', meetingDetail);
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* 왼쪽 영역: 회의 정보 및 음성 기록 */}
@@ -262,7 +277,7 @@ export default function MeetingDetailPage() {
               speechLogs={sttResult.speechLogs}
               title={`${meetingDetail.title} 녹음`}
               onTimeUpdate={handleAudioTimeUpdate}
-              initialDuration={meetingDetail.duration} // DB에서 가져온 duration 값을 전달
+              initialDuration={meetingDetail.duration}
             />
           </div>
         )}
@@ -348,13 +363,25 @@ export default function MeetingDetailPage() {
               <h2 className="text-2xl font-bold mb-4">음성 기록</h2>
               {sttResult && sttResult.speechLogs && sttResult.speechLogs.length > 0 ? (
                 <div className="bg-gray-50 p-4 rounded-lg border">
-                  <div className="mb-3 text-sm text-gray-600">
-                    💡 발언 내용을 클릭하면 해당 시점으로 오디오가 이동합니다.
+                  <div className="mb-3 text-sm text-gray-600 flex items-center space-x-4">
+                    <span>💡 발언 내용을 클릭하면 해당 시점으로 오디오가 이동합니다.</span>
+                    <span className="flex items-center space-x-1">
+                      <svg
+                        className="w-4 h-4 text-yellow-600"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                      <span>북마크 아이콘을 클릭하여 중요한 내용을 저장하세요.</span>
+                    </span>
                   </div>
                   <ScriptTranscript
                     speechLogs={sttResult.speechLogs}
                     currentTime={currentAudioTime}
                     onScriptClick={audioUrl ? handleScriptClick : undefined}
+                    onBookmarkToggle={handleBookmarkToggle}
+                    isBookmarked={isBookmarked}
                   />
                 </div>
               ) : (
