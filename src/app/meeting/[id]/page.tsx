@@ -1,5 +1,5 @@
 'use client';
-import { Bot } from 'lucide-react';
+
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
@@ -178,7 +178,10 @@ export default function MeetingDetailPage() {
   const [teamId, setTeamId] = useState<number>(0);
   // const [newMessage, setNewMessage] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
-
+  // const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+  //   { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
+  //   { id: 2, type: 'ai', content: '궁금한 점이 있으시다면 말씀해주세요', timestamp: new Date() },
+  // ]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isAsking, setIsAsking] = useState(false);
@@ -1010,7 +1013,7 @@ export default function MeetingDetailPage() {
         <div className="flex-shrink-0 p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center">
-              <Bot size={16} className="text-white" />
+              <span className="text-white text-sm">🤖</span>
             </div>
             <h3 className="font-semibold text-[#333333]">AI 어시스턴트</h3>
           </div>
