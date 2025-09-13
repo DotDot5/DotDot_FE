@@ -882,13 +882,13 @@ export default function MeetingCreateModal({
                 {agendaItems.map((item, index) => (
                   <div key={index}>
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
+                      <div className="flex items-center flex-1 min-w-0">
                         <div className="w-3 h-3 border-2 border-[#666666] rounded-full mr-3"></div>
                         <input
                           type="text"
                           value={item.type}
                           onChange={(e) => updateAgendaItem(index, 'type', e.target.value)}
-                          className="text-sm text-[#000000] bg-transparent border-none outline-none font-medium placeholder:text-[#CCCCCC]"
+                          className="w-full text-sm text-[#000000] bg-transparent border-none outline-none font-medium placeholder:text-[#CCCCCC]"
                           placeholder="안건 제목"
                         />
                       </div>
