@@ -237,7 +237,25 @@ export default function MeetingInfoPage() {
               className="flex items-center justify-between px-4 py-2 bg-gray-100 rounded-full min-w-0"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-5 h-5 rounded-full bg-gray-300 flex-shrink-0" />
+                {/* 프로필 이미지 or 첫 글자 동그라미 */}
+                {member.profileImageUrl &&
+                member.profileImageUrl !== 'null' &&
+                member.profileImageUrl !== 'undefined' &&
+                member.profileImageUrl.trim() !== '' &&
+                member.profileImageUrl !== 'basic' ? (
+                  <img
+                    src={member.profileImageUrl}
+                    alt={member.userName}
+                    className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs flex-shrink-0"
+                    style={{ backgroundColor: '#FFD93D', color: '#fff' }}
+                  >
+                    {member.userName?.[0] || ''}
+                  </div>
+                )}
                 <span className="text-sm text-[#000000] truncate">{member.userName}</span>
               </div>
               <span
