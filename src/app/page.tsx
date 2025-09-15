@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect } from 'react';
-import { Button } from "@/components/internal/ui/button";
-import { Card, CardContent } from "@/components/internal/ui/card";
-import { Calendar, Mic, MessageSquare, Users, Play, ArrowRight } from "lucide-react";
+import { Button } from '@/components/internal/ui/button';
+import { Card, CardContent } from '@/components/internal/ui/card';
+import { Calendar, Mic, MessageSquare, Users, Play, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 
 function isValidAccessToken(token: string | null): boolean {
   if (!token) return false;
@@ -28,8 +29,8 @@ export default function Home() {
     }
   }, [router]);
 
-  const goLogin = useCallback(() => router.push("/auth/login"), [router]);
-  const goSignup = useCallback(() => router.push("/auth/signup"), [router]);
+  const goLogin = useCallback(() => router.push('/auth/login'), [router]);
+  const goSignup = useCallback(() => router.push('/auth/signup'), [router]);
 
   const features = [
     {
@@ -60,12 +61,19 @@ export default function Home() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <Link href="/" className="flex items-center">
-              <div className="w-10 h-10 bg-[#FFD93D] rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">D</span>
+            <Link href="/" className="flex items-center h-12">
+              {' '}
+              <div className="relative w-[120px] h-full">
+                <Image
+                  src="/assets/DotDot_logo2.png"
+                  alt="DotDot 로고"
+                  fill
+                  className="object-contain" // 상하 여백 줄여서 맞춤
+                  priority
+                />
               </div>
-              <span className="ml-3 text-2xl font-bold text-gray-900">DotDot</span>
             </Link>
+
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
@@ -171,7 +179,6 @@ export default function Home() {
               </p>
             </div>
           </div>
-
         </div>
       </section>
 
