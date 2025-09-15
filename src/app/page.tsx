@@ -1,102 +1,216 @@
-import Image from "next/image";
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect } from 'react';
+import { Button } from '@/components/internal/ui/button';
+import { Card, CardContent } from '@/components/internal/ui/card';
+import { Calendar, Mic, MessageSquare, Users, Play, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
+
+function isValidAccessToken(token: string | null): boolean {
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1] || ''));
+    if (!payload?.exp) return false;
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const router = useRouter();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (isValidAccessToken(accessToken)) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
+
+  const goLogin = useCallback(() => router.push('/auth/login'), [router]);
+  const goSignup = useCallback(() => router.push('/auth/signup'), [router]);
+
+  const features = [
+    {
+      icon: <Calendar className="w-8 h-8 text-[#FFD93D]" />,
+      title: '스마트 회의 관리',
+      description: '회의 일정을 쉽게 관리하고 팀원들과 효율적으로 협업하세요.',
+    },
+    {
+      icon: <Mic className="w-8 h-8 text-[#FFD93D]" />,
+      title: '실시간 회의 녹음',
+      description: '회의 내용을 자동으로 녹음하고 중요한 순간을 놓치지 마세요.',
+    },
+    {
+      icon: <MessageSquare className="w-8 h-8 text-[#FFD93D]" />,
+      title: 'AI 어시스턴트',
+      description: 'AI가 회의 내용을 분석하고 핵심 포인트를 정리해드립니다.',
+    },
+    {
+      icon: <Users className="w-8 h-8 text-[#FFD93D]" />,
+      title: '팀 협업',
+      description: '팀원들과 실시간으로 소통하고 회의록을 공유하세요.',
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <Link href="/" className="flex items-center h-12">
+              {' '}
+              <div className="relative w-[120px] h-full">
+                <Image
+                  src="/assets/DotDot_logo2.png"
+                  alt="DotDot 로고"
+                  fill
+                  className="object-contain" // 상하 여백 줄여서 맞춤
+                  priority
+                />
+              </div>
+            </Link>
+
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                onClick={goLogin}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                로그인
+              </Button>
+              {/* <Button onClick={goSignup} className="bg-yellow-400 hover:bg-yellow-500 text-black font-medium">
+                시작하기
+              </Button> */}
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </header>
+
+      {/* Hero Section */}
+      <section className="bg-gradient-to-b from-yellow-50 to-white py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
+            스마트한 회의 관리의
+            <br />
+            <span className="text-[#FFD93D]">새로운 시작</span>
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            DotDot과 함께 팀 회의를 더 효율적으로 관리하고, AI 어시스턴트의 도움으로 중요한 내용을
+            놓치지 마세요. 실시간 협업과 스마트한 회의록 관리를 경험해보세요.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Button
+              onClick={goSignup}
+              className="inline-flex items-center bg-[#FFD93D] hover:bg-[#f4c715] text-black font-medium px-8 py-3 text-lg"
+            >
+              시작하기
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">왜 DotDot을 선택해야 할까요?</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              팀의 생산성을 높이는 강력한 기능들을 만나보세요
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, idx) => (
+              <Card key={idx} className="border border-gray-200 hover:shadow-lg transition-shadow">
+                <CardContent className="p-6 text-center">
+                  <div className="flex justify-center mb-4">{feature.icon}</div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">{feature.title}</h3>
+                  <p className="text-gray-600">{feature.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">간단한 3단계로 시작하세요</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              복잡한 설정 없이 바로 사용할 수 있습니다
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-[#FFD93D] rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl font-bold text-black">1</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">팀 생성 및 초대</h3>
+              <p className="text-gray-600">
+                회원가입 후 팀을 생성하고 동료들을 이메일로 초대하세요.
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 bg-[#FFD93D] rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl font-bold text-black">2</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">회의 일정 관리</h3>
+              <p className="text-gray-600">
+                회의를 생성하고 안건을 정리하세요. 팀원들과 실시간 협업이 가능합니다.
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 bg-[#FFD93D] rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl font-bold text-black">3</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">AI 분석 및 정리</h3>
+              <p className="text-gray-600">
+                회의 종료 후 AI가 자동으로 핵심 내용을 분석·정리합니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="bg-[#FFD93D] py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold text-black mb-4">지금 바로 시작해보세요</h2>
+          <p className="text-lg text-black mb-8 opacity-80">
+            DotDot을 체험하고 팀의 회의 문화를 혁신하세요
+          </p>
+          <Button
+            onClick={goSignup}
+            className="bg-black hover:bg-gray-800 text-white font-medium px-8 py-3 text-lg"
+          >
+            시작하기
+          </Button>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="flex items-center mb-4 md:mb-0">
+              <div className="w-8 h-8 bg-[#FFD93D] rounded-lg flex items-center justify-center">
+                <span className="text-black font-bold">D</span>
+              </div>
+              <span className="ml-3 text-xl font-bold">DotDot</span>
+            </div>
+            <div className="text-gray-400">© 2025 DotDot. All rights reserved.</div>
+          </div>
+        </div>
       </footer>
     </div>
   );
