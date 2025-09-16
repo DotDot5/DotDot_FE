@@ -324,7 +324,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const sttResultId = searchParams.get('sttResultId');
 
