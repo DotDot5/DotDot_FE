@@ -5,18 +5,13 @@ const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8080/api/v
 /**
  * [GET] 특정 팀의 태스크 목록 조회
  */
-export async function GET(
-  request: NextRequest,
-  context: { params: { teamId: string } } // ← context로 명시
-) {
+export async function GET(request: NextRequest, context: { params: { teamId: string } }) {
   const { teamId } = context.params;
   const searchParams = request.nextUrl.search;
 
   try {
     const authToken = request.headers.get('Authorization');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (authToken) headers['Authorization'] = authToken;
 
     const apiRes = await fetch(`${API_BASE_URL}/teams/${teamId}/tasks${searchParams}`, {
@@ -25,10 +20,7 @@ export async function GET(
     });
 
     const data = await apiRes.json();
-
-    if (!apiRes.ok) {
-      return NextResponse.json(data, { status: apiRes.status });
-    }
+    if (!apiRes.ok) return NextResponse.json(data, { status: apiRes.status });
 
     return NextResponse.json(data);
   } catch (error) {
@@ -46,9 +38,7 @@ export async function POST(request: NextRequest, context: { params: { teamId: st
 
   try {
     const authToken = request.headers.get('Authorization');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (authToken) headers['Authorization'] = authToken;
 
     const apiRes = await fetch(`${API_BASE_URL}/teams/${teamId}/tasks`, {
@@ -58,10 +48,7 @@ export async function POST(request: NextRequest, context: { params: { teamId: st
     });
 
     const data = await apiRes.json();
-
-    if (!apiRes.ok) {
-      return NextResponse.json(data, { status: apiRes.status });
-    }
+    if (!apiRes.ok) return NextResponse.json(data, { status: apiRes.status });
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
