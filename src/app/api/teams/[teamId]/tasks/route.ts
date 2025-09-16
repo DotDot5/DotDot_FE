@@ -1,17 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-interface RouteContext {
-  params: {
-    teamId: string;
-  };
-}
+// RouteContext 인터페이스는 삭제합니다.
 
 const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8080/api/v1';
 
 /**
  * [GET] 특정 팀의 태스크 목록 조회
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  context: { params: { teamId: string } } // 타입을 직접 명시합니다.
+) {
   const { teamId } = context.params;
   const searchParams = request.nextUrl.search;
 
@@ -38,7 +37,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 /**
  * [POST] 특정 팀에 새 태스크 생성
  */
-export async function POST(request: NextRequest, context: RouteContext) {
+export async function POST(
+  request: NextRequest,
+  context: { params: { teamId: string } } // 타입을 직접 명시합니다.
+) {
   const { teamId } = context.params;
   const body = await request.json();
 
