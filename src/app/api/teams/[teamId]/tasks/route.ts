@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8080/api/v1';
 
@@ -6,11 +6,11 @@ const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8080/api/v
  * [GET] 특정 팀의 태스크 목록 조회
  */
 export async function GET(
-  request: Request,
-  { params }: { params: { teamId: string } } // 인자를 구조 분해해서 받습니다.
+  request: NextRequest,
+  { params }: { params: Promise<{ teamId: string }> }
 ) {
-  const { teamId } = params; // context.params 대신 바로 params를 사용합니다.
-  const searchParams = new URL(request.url).search;
+  const { teamId } = await params;
+  const searchParams = request.nextUrl.search;
 
   try {
     const authToken = request.headers.get('Authorization');
@@ -36,10 +36,10 @@ export async function GET(
  * [POST] 특정 팀에 새 태스크 생성
  */
 export async function POST(
-  request: Request,
-  { params }: { params: { teamId: string } } // 인자를 구조 분해해서 받습니다.
+  request: NextRequest,
+  { params }: { params: Promise<{ teamId: string }> }
 ) {
-  const { teamId } = params; // context.params 대신 바로 params를 사용합니다.
+  const { teamId } = await params;
   const body = await request.json();
 
   try {
