@@ -1,7 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-// RouteContext 인터페이스는 삭제합니다.
-
 const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8080/api/v1';
 
 /**
@@ -9,9 +7,9 @@ const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8080/api/v
  */
 export async function GET(
   request: NextRequest,
-  context: { params: { teamId: string } } // 타입을 직접 명시합니다.
+  { params }: { params: { teamId: string } } // 인자를 구조 분해해서 받습니다.
 ) {
-  const { teamId } = context.params;
+  const { teamId } = params; // context.params 대신 바로 params를 사용합니다.
   const searchParams = request.nextUrl.search;
 
   try {
@@ -39,9 +37,9 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  context: { params: { teamId: string } } // 타입을 직접 명시합니다.
+  { params }: { params: { teamId: string } } // 인자를 구조 분해해서 받습니다.
 ) {
-  const { teamId } = context.params;
+  const { teamId } = params; // context.params 대신 바로 params를 사용합니다.
   const body = await request.json();
 
   try {
