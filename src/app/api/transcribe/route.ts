@@ -250,7 +250,7 @@ export async function POST(req: Request) {
     }
 
     try {
-      const updateBackendUrl = `http://localhost:8080/api/v1/meetings/${meetingId}/stt-result`;
+      const updateBackendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`;
       console.log(`Calling Spring Boot backend at: ${updateBackendUrl}`);
 
       const requestBody = {
@@ -338,7 +338,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: '유효하지 않은 STT Result ID입니다.' }, { status: 400 });
     }
 
-    const backendUrl = `http://localhost:8080/api/v1/meetings/${meetingId}/stt-result`;
+    const backendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`;
 
     console.log(`[GET /api/transcribe] 백엔드 URL: ${backendUrl}`);
 
