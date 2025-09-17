@@ -8,6 +8,7 @@ import path from 'path';
 import os from 'os';
 
 export const dynamic = 'force-dynamic';
+const backendBaseUrl = process.env.BACKEND_API_URL || 'http://localhost:8080';
 
 function formatSecondsToMinutesSeconds(totalSeconds: number): string {
   if (totalSeconds < 0) {
@@ -250,7 +251,7 @@ export async function POST(req: Request) {
     }
 
     try {
-      const updateBackendUrl = `http://localhost:8080/api/v1/meetings/${meetingId}/stt-result`;
+      const updateBackendUrl = `${backendBaseUrl}/api/v1/meetings/${meetingId}/stt-result`;
       console.log(`Calling Spring Boot backend at: ${updateBackendUrl}`);
 
       const requestBody = {
@@ -338,8 +339,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: '유효하지 않은 STT Result ID입니다.' }, { status: 400 });
     }
 
-    const backendUrl = `http://localhost:8080/api/v1/meetings/${meetingId}/stt-result`;
-
+    const backendUrl = `${backendBaseUrl}/api/v1/meetings/${meetingId}/stt-result`;
     console.log(`[GET /api/transcribe] 백엔드 URL: ${backendUrl}`);
 
     const response = await fetch(backendUrl, {
