@@ -106,9 +106,6 @@ export default function MeetingDetailPage() {
   }, [summary]);
 
   useEffect(() => {
-    console.log('환경변수 확인:');
-    console.log('NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
-    console.log('NODE_ENV:', process.env.NODE_ENV);
     if (isNaN(meetingId)) {
       setLoading(false);
       setError('잘못된 회의 ID입니다.');
@@ -220,6 +217,17 @@ export default function MeetingDetailPage() {
 
   // 북마크 토글 핸들러
   const handleBookmarkToggle = async (speechLogId: number) => {
+    console.log('북마크 클릭된 speechLogId:', speechLogId);
+    console.log('speechLogId 타입:', typeof speechLogId);
+    console.log('speechLogId가 undefined인가?:', speechLogId === undefined);
+
+    // speechLogId가 undefined면 early return
+    if (!speechLogId || speechLogId === undefined) {
+      console.error('speechLogId가 유효하지 않습니다:', speechLogId);
+      toast.error('북마크를 추가할 수 없습니다. 잘못된 데이터입니다.');
+      return;
+    }
+
     try {
       await handleToggleBookmark(speechLogId);
     } catch (error) {
