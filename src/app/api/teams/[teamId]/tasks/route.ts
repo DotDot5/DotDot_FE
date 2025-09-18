@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8080/api/v1';
+const API_BASE_URL = process.env.BACKEND_API_URL || 'https://api.dotdot.it.kr/api/v1';
 
 /**
  * [GET] 특정 팀의 태스크 목록 조회
