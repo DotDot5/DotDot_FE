@@ -10,6 +10,7 @@ import { Button } from '@/components/internal/ui/button';
 import { Avatar, AvatarFallback } from '@/components/internal/ui/avatar';
 import TodoItem from '@/components/internal/TodoItem';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 /* ===============================
  * Types
@@ -168,6 +169,7 @@ async function sendEmail({ to, subject, html }: { to: string[]; subject: string;
  * Page
  * =============================== */
 export default function MeetingPage() {
+  const router = useRouter();
   const [showTodos, setShowTodos] = useState(true);
   const [openEmailIndex, setOpenEmailIndex] = useState<number | null>(null);
   const [showPdfModal, setShowPdfModal] = useState(false);
@@ -415,7 +417,16 @@ export default function MeetingPage() {
         <RecommandSection items={recList} loading={loadingRecs} />
 
         <div className="flex justify-center mt-8">
-          <Button className="bg-[#FFD93D] text-white text-sm font-medium px-6 py-2 rounded-md hover:bg-[#ffcf0a]">
+          <Button
+            onClick={() => {
+              if (meetingId) {
+                router.push(`/team/records/${meetingId}`);
+              } else {
+                alert('회의 ID를 찾을 수 없습니다.');
+              }
+            }}
+            className="bg-[#FFD93D] text-white text-sm font-medium px-6 py-2 rounded-md hover:bg-[#ffcf0a]"
+          >
             저장
           </Button>
         </div>
