@@ -25,6 +25,19 @@ function formatSecondsToMinutesSeconds(totalSeconds: number): string {
   return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
 }
 
+function getGoogleCredentials() {
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+    return {
+      credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON),
+    }; // Vercel 배포 환경
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return {
+      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    };
+  }
+  throw new Error('Google Cloud credentials not configured');
+}
+
 function hmsToSeconds(hms: string): number {
   const [hours, minutes, seconds] = hms.split(':').map(Number);
   if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) {
@@ -39,8 +52,9 @@ export async function POST(req: Request) {
   let storageClient: Storage;
 
   try {
-    speechClient = new SpeechClient();
-    storageClient = new Storage();
+    const googleCreds = getGoogleCredentials();
+    speechClient = new SpeechClient(googleCreds);
+    storageClient = new Storage(googleCreds);
     console.log('Google Cloud clients initialized successfully');
   } catch (err) {
     console.error('Failed to initialize Google Cloud clients. Check credentials:', err);
