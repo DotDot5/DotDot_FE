@@ -285,7 +285,7 @@ export async function POST(req: Request) {
       );
 
       const updateResponse = await fetch(updateBackendUrl, {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
