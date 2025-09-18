@@ -106,6 +106,10 @@ export default function MeetingDetailPage() {
   }, [summary]);
 
   useEffect(() => {
+    console.log('=== 환경변수 확인 ===');
+    console.log('NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('현재 도메인:', window.location.origin);
     if (isNaN(meetingId)) {
       setLoading(false);
       setError('잘못된 회의 ID입니다.');
@@ -119,6 +123,10 @@ export default function MeetingDetailPage() {
       if (!meetingId) return;
       setLoading(true);
       setError(null);
+
+      console.log('=== fetchData 시작 ===');
+      console.log('meetingId:', meetingId);
+
       try {
         const detailAny = await getMeetingDetail(meetingId);
 
@@ -134,28 +142,54 @@ export default function MeetingDetailPage() {
         const normalizeMethod = (m: string | undefined | null): 'RECORD' | 'REALTIME' =>
           m === 'REALTIME' ? 'REALTIME' : 'RECORD';
 
+        console.log('=== STT 결과 조회 시작 ===');
         const stt = await getMeetingSttResult(meetingId);
+        console.log('배포환경 STT 결과 전체:', stt);
+        console.log('배포환경 speechLogs 첫 번째 항목:', stt?.speechLogs?.[0]);
+        console.log('배포환경 speechLogs 개수:', stt?.speechLogs?.length);
         setSttResult(stt);
 
         if (stt?.audioId) {
-          if (stt.audioId.startsWith('gs://') || stt.audioId.startsWith('https://')) {
+          console.log('=== 오디오 처리 시작 ===');
+          console.log('원본 audioId:', stt.audioId);
+          console.log('audioId 타입:', typeof stt.audioId);
+
+          if (stt.audioId.startsWith('gs://')) {
+            console.log('GCS URL 감지, 서명된 URL 생성 시도...');
             try {
-              const audioResponse = await fetch(
-                `/api/audio?audioId=${encodeURIComponent(stt.audioId)}`
-              );
+              const encodedAudioId = encodeURIComponent(stt.audioId);
+              const apiUrl = `/api/audio?audioId=${encodedAudioId}`;
+              console.log('API 호출 URL:', apiUrl);
+
+              const audioResponse = await fetch(apiUrl);
+              console.log('오디오 API 응답 상태:', audioResponse.status);
+
               if (audioResponse.ok) {
                 const audioData = await audioResponse.json();
+                console.log('서명된 URL 생성 성공:', audioData.audioUrl);
                 setAudioUrl(audioData.audioUrl);
               } else {
-                setAudioUrl(stt.audioId);
+                const errorText = await audioResponse.text();
+                console.error('서명된 URL 생성 실패:', errorText);
+                console.warn('오디오 플레이어 비활성화');
+                setAudioUrl(null); // GCS URL을 직접 사용하지 않음
               }
             } catch (audioError) {
-              console.warn('오디오 URL 처리 실패, 직접 사용:', audioError);
-              setAudioUrl(stt.audioId);
+              console.error('오디오 API 호출 실패:', audioError);
+              console.warn('오디오 플레이어 비활성화');
+              setAudioUrl(null); // 에러 시 오디오 비활성화
             }
+          } else if (stt.audioId.startsWith('https://')) {
+            console.log('HTTPS URL 직접 사용:', stt.audioId);
+            setAudioUrl(stt.audioId);
           } else {
+            console.log('일반 파일 경로, 직접 사용:', stt.audioId);
             setAudioUrl(stt.audioId);
           }
+          console.log('=== 오디오 처리 완료 ===');
+        } else {
+          console.log('audioId가 없음, 오디오 플레이어 비활성화');
+          setAudioUrl(null);
         }
 
         const mapped: MeetingDetailResponse = {
@@ -179,6 +213,8 @@ export default function MeetingDetailPage() {
           duration: raw.duration,
         };
 
+        console.log('=== 최종 매핑된 데이터 ===');
+        console.log('mapped meetingDetail:', mapped);
         setMeetingDetail(mapped);
       } catch (err: any) {
         console.error('데이터 불러오기 실패:', err);
@@ -188,6 +224,7 @@ export default function MeetingDetailPage() {
         }
       } finally {
         setLoading(false);
+        console.log('=== fetchData 완료 ===');
       }
     };
 
