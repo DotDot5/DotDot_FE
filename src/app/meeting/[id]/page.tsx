@@ -37,6 +37,7 @@ import {
 } from '@/api/meeting';
 import type { MeetingParticipant, UpdateMeetingRequest } from '@/api/meeting';
 import { getTeamMembers } from '@/api/team';
+import { toast } from 'sonner';
 
 interface AgendaItem {
   id: number;
@@ -54,7 +55,7 @@ interface ChatMessage {
 interface Participant {
   id?: number;
   name?: string;
-  userName?: string; 
+  userName?: string;
   profileImageUrl?: string | null;
   email: string;
   role?: string;
@@ -110,8 +111,8 @@ const ParticipantsList = ({ participants }: { participants: Participant[] }) => 
         const initial = displayName
           ? displayName.charAt(0).toUpperCase()
           : p.email
-            ? p.email.charAt(0).toUpperCase()
-            : '?';
+          ? p.email.charAt(0).toUpperCase()
+          : '?';
         const avatarUrl =
           p.profileImageUrl && p.profileImageUrl !== 'basic' ? p.profileImageUrl : null;
 
@@ -369,7 +370,7 @@ export default function MeetingDetailPage() {
       mediaRecorderRef.current = newMediaRecorder;
     } catch (err) {
       console.error('녹음 시작 실패:', err);
-      alert('녹음을 시작할 수 없습니다. 마이크 및 화면 공유 권한을 허용해주세요.');
+      toast.error('녹음을 시작할 수 없습니다. 마이크 및 화면 공유 권한을 허용해주세요.');
     }
   };
 
@@ -581,7 +582,7 @@ export default function MeetingDetailPage() {
       const file = meetingMethod === 'REALTIME' ? recordedBlob : uploadedFile;
 
       if (!file) {
-        alert('오디오가 없습니다. 녹음을 종료했거나 파일을 업로드해야 합니다.');
+        toast.error('오디오가 없습니다. 녹음을 종료했거나 파일을 업로드해야 합니다.');
         return;
       }
 
@@ -694,7 +695,7 @@ export default function MeetingDetailPage() {
       router.push(`/meeting/${meetingId}/result?${query}`);
     } catch (err: any) {
       console.error('회의 종료 후처리 실패:', err);
-      alert(err?.message ?? '회의 종료 후처리 중 오류가 발생했습니다.');
+      toast.error(err?.message ?? '회의 종료 후처리 중 오류가 발생했습니다.');
     } finally {
       // 로딩 off & 상태 문구 초기화
       setIsTranscribing(false);

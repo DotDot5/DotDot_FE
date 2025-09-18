@@ -18,6 +18,7 @@ import {
   TaskCreateRequest,
 } from '@/services/taskApi';
 import { fetchTeamDetails } from '@/services/teamApi';
+import { toast } from 'sonner';
 
 const mapResponseToTask = (res: TaskResponse): Task => ({
   id: res.taskId,
@@ -95,7 +96,7 @@ export default function TeamCalendarPage() {
       await action;
       await loadDataForMonth();
     } catch (err) {
-      alert('요청 처리에 실패했습니다.');
+      toast.error('요청 처리에 실패했습니다.');
     }
   };
 

@@ -10,6 +10,7 @@ import { Button } from '@/components/internal/ui/button';
 import { Avatar, AvatarFallback } from '@/components/internal/ui/avatar';
 import TodoItem from '@/components/internal/TodoItem';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
 
 /* ===============================
  * Types
@@ -254,7 +255,9 @@ export default function MeetingPage() {
         .map(
           (t, idx) => `
         <div class="todo-item">
-          <h3>${idx + 1}. ${['높음', '보통', '낮음'].includes(t.priorityLabel ?? '') ? '[중요] ' : ''}${t.title}</h3>
+          <h3>${idx + 1}. ${
+            ['높음', '보통', '낮음'].includes(t.priorityLabel ?? '') ? '[중요] ' : ''
+          }${t.title}</h3>
        <p><strong>담당자:</strong> ${t.assigneeName ?? '-'}</p>
        ${t.due ? `<p><strong>마감일:</strong> ${t.due.slice(0, 10)}</p>` : ''}
         </div>
@@ -335,7 +338,7 @@ export default function MeetingPage() {
   // 이메일 전송/프린트 로직에서 createPDFHtml만 교체
   const onSendEmail = async (sections: SectionSelection) => {
     if (selectedEmails.length === 0) {
-      alert('수신자를 한 명 이상 선택해주세요.');
+      toast.error('수신자를 한 명 이상 선택해주세요.');
       return;
     }
     const html = createPDFHtml(sections);
@@ -349,17 +352,18 @@ export default function MeetingPage() {
       }),
     });
     const result = await res.json();
-    alert(
-      result?.success
-        ? (result.message ?? '이메일 발송 완료')
-        : `이메일 발송 실패: ${result?.message ?? ''}`
-    );
+    if (result?.success) {
+      toast.success(result.message ?? '이메일 발송 완료');
+    } else {
+      const errorMessage = `이메일 발송 실패: ${result?.message ?? ''}`;
+      toast.error(errorMessage);
+    }
   };
 
   const onDownloadPdf = (sections: SectionSelection) => {
     const html = createPDFHtml(sections);
     const win = window.open('', '_blank');
-    if (!win) return alert('팝업이 차단되었습니다.');
+    if (!win) return toast.error('팝업이 차단됐습니다.');
     win.document.write(html);
     win.document.close();
     setTimeout(() => win.print(), 400);
@@ -367,7 +371,7 @@ export default function MeetingPage() {
 
   const onClickEmailButton = () => {
     if (selectedEmails.length === 0) {
-      alert('수신자를 한 명 이상 선택해주세요.');
+      toast.error('수신자를 한 명 이상 선택해주세요.');
       return;
     }
     setShowEmailModal(true);

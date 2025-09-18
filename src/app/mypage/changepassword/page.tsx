@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { changePassword } from '@/api/user';
 import { Button } from '@/components/internal/ui/button';
 import { Input } from '@/components/internal/ui/input';
+import { toast } from 'sonner';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -18,24 +19,23 @@ export default function ChangePasswordPage() {
     e.preventDefault();
 
     if (newPassword !== confirmNewPassword) {
-      alert('새 비밀번호가 일치하지 않습니다.');
+      toast.error('새 비밀번호가 일치하지 않습니다.');
       return;
     }
 
     if (currentPassword === newPassword) {
-      alert('새 비밀번호는 현재 비밀번호와 달라야 합니다.');
+      toast.error('새 비밀번호는 현재 비밀번호와 달라야 합니다.');
       return;
     }
 
     try {
       await changePassword(currentPassword, newPassword);
-
-      alert('비밀번호가 성공적으로 변경되었습니다.');
+      toast.success('비밀번호가 성공적으로 변경되었습니다.');
       router.back();
     } catch (error) {
       console.error('비밀번호 변경 실패:', error);
       const errorMessage = error.response?.data?.message || '비밀번호 변경 중 오류가 발생했습니다.';
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
