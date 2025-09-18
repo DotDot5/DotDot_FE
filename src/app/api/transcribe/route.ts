@@ -8,6 +8,7 @@ import path from 'path';
 import os from 'os';
 
 export const dynamic = 'force-dynamic';
+const backendBaseUrl = process.env.BACKEND_API_URL || 'http://localhost:8080';
 
 function formatSecondsToMinutesSeconds(totalSeconds: number): string {
   if (totalSeconds < 0) {
@@ -24,6 +25,19 @@ function formatSecondsToMinutesSeconds(totalSeconds: number): string {
   return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
 }
 
+function getGoogleCredentials() {
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+    return {
+      credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON),
+    }; // Vercel 배포 환경
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return {
+      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    };
+  }
+  throw new Error('Google Cloud credentials not configured');
+}
+
 function hmsToSeconds(hms: string): number {
   const [hours, minutes, seconds] = hms.split(':').map(Number);
   if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) {
@@ -38,8 +52,9 @@ export async function POST(req: Request) {
   let storageClient: Storage;
 
   try {
-    speechClient = new SpeechClient();
-    storageClient = new Storage();
+    const googleCreds = getGoogleCredentials();
+    speechClient = new SpeechClient(googleCreds);
+    storageClient = new Storage(googleCreds);
     console.log('Google Cloud clients initialized successfully');
   } catch (err) {
     console.error('Failed to initialize Google Cloud clients. Check credentials:', err);
@@ -250,7 +265,7 @@ export async function POST(req: Request) {
     }
 
     try {
-      const updateBackendUrl = `http://localhost:8080/api/v1/meetings/${meetingId}/stt-result`;
+      const updateBackendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`;
       console.log(`Calling Spring Boot backend at: ${updateBackendUrl}`);
 
       const requestBody = {
@@ -338,7 +353,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: '유효하지 않은 STT Result ID입니다.' }, { status: 400 });
     }
 
-    const backendUrl = `http://localhost:8080/api/v1/meetings/${meetingId}/stt-result`;
+    const backendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`;
 
     console.log(`[GET /api/transcribe] 백엔드 URL: ${backendUrl}`);
 

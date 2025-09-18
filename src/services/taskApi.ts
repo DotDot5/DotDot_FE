@@ -36,7 +36,7 @@ export type TaskUpdateRequest = Partial<Omit<TaskCreateRequest, 'assigneeId'>> &
 };
 
 // --- API 요청 기본 설정 ---
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.dotdot.it.kr';
 const API_V1_PATH = '/api/v1';
 
 const getAuthToken = (): string | null =>
