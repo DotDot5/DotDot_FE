@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from '@/components/internal/ui/avatar';
 import TodoItem from '@/components/internal/TodoItem';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 /* ===============================
  * Types
@@ -69,6 +70,7 @@ const defaultSections: SectionSelection = {
 //   win.document.close();
 //   setTimeout(() => win.print(), 400);
 // };
+
 
 /* ===============================
  * Reusable Modal (PDF/Email 겸용)
@@ -225,6 +227,16 @@ export default function MeetingPage() {
     () => checked.map((v, i) => (v ? participants[i]?.email : null)).filter(Boolean) as string[],
     [checked, participants]
   );
+  const router = useRouter();
+
+  const goToRecords = () => {
+    if (!meetingId) {
+      toast.error('meetingId가 없습니다.');
+      return;
+    }
+    router.push(`/team/records/${meetingId}`);
+  };
+
 
   const meetingData = useMemo(
     () => ({
@@ -419,7 +431,10 @@ export default function MeetingPage() {
         <RecommandSection items={recList} loading={loadingRecs} />
 
         <div className="flex justify-center mt-8">
-          <Button className="bg-[#FFD93D] text-white text-sm font-medium px-6 py-2 rounded-md hover:bg-[#ffcf0a]">
+          <Button
+            onClick={goToRecords}
+            className="bg-[#FFD93D] text-white text-sm font-medium px-6 py-2 rounded-md hover:bg-[#ffcf0a]"
+          >
             저장
           </Button>
         </div>
