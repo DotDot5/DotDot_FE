@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getMyMeetingList, MeetingListResponse } from '@/api/meeting';
+import Image from 'next/image';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -50,8 +51,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* 상단 말풍선 */}
-      <div className="bg-yellow-50 rounded-xl h-32 flex items-center justify-center">
-        <div className="flex space-x-6">{/* 여기에 사용자 인사 등 넣을 수 있음 */}</div>
+      <div className="bg-yellow-50 rounded-xl h-32 flex items-center justify-center relative overflow-hidden">
+        <Image src="/assets/image.png" alt="Hello" fill className="object-cover" />
       </div>
 
       {/* 최근 회의 목록 */}
