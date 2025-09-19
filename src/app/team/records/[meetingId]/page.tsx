@@ -409,7 +409,7 @@ export default function MeetingDetailPage() {
               {sttResult && sttResult.speechLogs && sttResult.speechLogs.length > 0 ? (
                 <div className="bg-gray-50 p-4 rounded-lg border">
                   <div className="mb-3 text-sm text-gray-600 flex items-center space-x-4">
-                    <span>💡 발언 내용을 클릭하면 해당 시점으로 오디오가 이동합니다.</span>
+                    {/* <span>💡 발언 내용을 클릭하면 해당 시점으로 오디오가 이동합니다.</span> */}
                     <span className="flex items-center space-x-1">
                       <svg
                         className="w-4 h-4 text-yellow-600"
