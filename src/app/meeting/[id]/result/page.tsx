@@ -71,7 +71,6 @@ const defaultSections: SectionSelection = {
 //   setTimeout(() => win.print(), 400);
 // };
 
-
 /* ===============================
  * Reusable Modal (PDF/Email 겸용)
  * =============================== */
@@ -228,7 +227,6 @@ export default function MeetingPage() {
     () => checked.map((v, i) => (v ? participants[i]?.email : null)).filter(Boolean) as string[],
     [checked, participants]
   );
-  const router = useRouter();
 
   const goToRecords = () => {
     if (!meetingId) {
@@ -237,7 +235,6 @@ export default function MeetingPage() {
     }
     router.push(`/team/records/${meetingId}`);
   };
-
 
   const meetingData = useMemo(
     () => ({
