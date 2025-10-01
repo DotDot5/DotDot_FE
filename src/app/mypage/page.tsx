@@ -11,6 +11,7 @@ import LogoutConfirmModal from './LogoutModal';
 import { getUserProfile, updateUserProfile, updateProfileImage } from '@/api/user';
 import { logout } from '@/api/auth';
 import axiosInstance from '@/lib/axiosInstance';
+import { toast } from 'sonner';
 
 export default function MyPage() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export default function MyPage() {
         setProfileData(responseData.data);
       } catch (error) {
         console.error('Failed to fetch user profile:', error);
-        alert('사용자 정보를 불러오지 못했습니다. 다시 로그인해주세요.');
+        toast.error('사용자 정보를 불러오지 못했습니다. 다시 로그인해주세요.');
         await logout();
         router.replace('/auth/login');
       }
@@ -66,10 +67,10 @@ export default function MyPage() {
       const responseData = await updateUserProfile(finalProfileData);
 
       setProfileData(responseData.data);
-      alert('프로필이 성공적으로 업데이트되었습니다!');
+      toast.success('프로필을 업데이트 했습니다.');
     } catch (error) {
       console.error('프로필 업데이트 실패:', error);
-      alert('프로필 업데이트 중 오류가 발생했습니다. 다시 시도해 주세요.');
+      toast.error('프로필 업데이트 중 오류가 발생했습니다. 다시 시도해 주세요.');
     } finally {
       setIsProfileModalOpen(false);
     }
@@ -80,12 +81,12 @@ export default function MyPage() {
       await axiosInstance.delete('/api/v1/users/me/withdrawal');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      alert('회원 탈퇴가 완료되었습니다.');
+      toast.success('회원 탈퇴가 완료되었습니다.');
       setIsWithdrawalModalOpen(false);
       router.replace('/auth/login');
     } catch (error) {
       console.error('회원 탈퇴 실패:', error);
-      alert('회원 탈퇴 중 오류가 발생했습니다. 다시 시도해 주세요.');
+      toast.error('회원 탈퇴 중 오류가 발생했습니다. 다시 시도해 주세요.');
     }
   };
 
@@ -94,12 +95,12 @@ export default function MyPage() {
       await logout();
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      alert('성공적으로 로그아웃되었습니다.');
+      toast.success('성공적으로 로그아웃되었습니다.');
       setIsLogoutModalOpen(false);
       router.replace('/auth/login');
     } catch (error) {
       console.error('로그아웃 실패:', error);
-      alert('로그아웃에 실패했습니다. 다시 시도해 주세요.');
+      toast.error('로그아웃에 실패했습니다. 다시 시도해 주세요.');
     }
   };
 
