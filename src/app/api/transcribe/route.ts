@@ -1,5 +1,5 @@
 // route.ts
-
+import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { SpeechClient } from '@google-cloud/speech';
 import { Storage } from '@google-cloud/storage';
@@ -47,6 +47,8 @@ function hmsToSeconds(hms: string): number {
 }
 
 export async function POST(req: Request) {
+  const headersList = headers();
+  const authorizationHeader = req.headers.get('authorization');
   console.log('API Route POST request received for transcription');
   let speechClient: SpeechClient;
   let storageClient: Storage;
@@ -288,6 +290,7 @@ export async function POST(req: Request) {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: authorizationHeader,
         },
         body: JSON.stringify(requestBody),
       });
@@ -342,7 +345,7 @@ export async function POST(req: Request) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const sttResultId = searchParams.get('sttResultId');
-
+  const authorizationHeader = request.headers.get('authorization');
   if (!sttResultId) {
     return NextResponse.json({ error: 'STT Result ID가 제공되지 않았습니다.' }, { status: 400 });
   }
@@ -359,6 +362,9 @@ export async function GET(request: Request) {
 
     const response = await fetch(backendUrl, {
       method: 'GET',
+      headers: {
+        Authorization: authorizationHeader,
+      },
     });
 
     if (!response.ok) {

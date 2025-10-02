@@ -423,7 +423,14 @@ export default function MeetingDetailPage() {
     //   } finally {
     //     setIsTranscribing(false);
     //   }
-    const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
+    const token = localStorage.getItem('accessToken');
+    const response = await fetch('/api/transcribe', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
     if (!response.ok) throw new Error('Transcription failed');
     return response.json(); // 필요하면 호출부에서 활용
   };
