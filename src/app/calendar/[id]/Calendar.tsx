@@ -43,7 +43,7 @@ export default function MyCalendar({
   return (
     <div className="flex flex-col items-center p-4">
       <div className="w-full max-w-xl">
-        <div className="bg-yellow-400 rounded-t-lg p-4 text-left">
+        <div className="bg-[#FFD93D] rounded-t-lg p-4 text-left">
           <h1 className="text-white text-lg font-bold">{teamName} 팀의 워크스페이스</h1>
         </div>
         <div className="bg-gray-50 rounded-b-2xl p-6 shadow-sm">
