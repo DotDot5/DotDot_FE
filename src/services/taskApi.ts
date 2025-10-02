@@ -3,7 +3,7 @@
 import axiosInstance from '@/lib/axiosInstance';
 import {
   Task,
-  TaskListResponse,
+  TaskListPayload,
   TaskCreatePayload,
   TaskUpdatePayload,
   TaskStatus,
@@ -28,7 +28,7 @@ export interface GetTasksParams {
 export const getTasks = async (
   teamId: string | number,
   params: GetTasksParams
-): Promise<TaskListResponse> => {
+): Promise<TaskListPayload> => {
   try {
     const response = await axiosInstance.get(`/api/v1/teams/${teamId}/tasks`, { params });
     return response.data.data;
