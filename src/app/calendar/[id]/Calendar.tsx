@@ -17,6 +17,7 @@ interface CalendarProps {
   teamName: string;
   onActiveStartDateChange: ({ activeStartDate }: { activeStartDate: Date | null }) => void;
   activeStartDate: Date;
+  currentAssigneeFilter: string;
 }
 
 const formatDateForDot = (date: Date): string => {

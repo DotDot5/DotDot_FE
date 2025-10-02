@@ -1,34 +1,19 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import useSWR from 'swr';
+import { toast } from 'sonner';
 
 import MainLayout from '@/components/layout/MainLayout';
 import Calendar from './Calendar';
 import TaskList from './TaskList';
 
-import {
-  fetchTasks,
-  createTask,
-  updateTask,
-  deleteTask,
-  changeTaskStatus,
-} from '@/services/taskApi';
-
-import { Task, TaskCreatePayload } from '@/types/task';
-import { TeamMemberResponse } from '@/types/team';
+import { useTasks } from '@/hooks/useTasks';
+import { createTask, updateTask, deleteTask, updateTaskStatus } from '@/services/taskApi';
 import { fetchTeamDetails } from '@/services/teamApi';
-import { toast } from 'sonner';
-
-const mapResponseToTask = (res: Task): Task => ({
-  id: res.taskId,
-  title: res.title,
-  description: res.description,
-  assignee: res.assigneeName || '미지정',
-  status: res.statusLabel,
-  priority: res.priorityLabel,
-  dueDate: res.due ? res.due.split('T')[0] : '',
-});
+import { Task, TaskCreatePayload, TaskUpdatePayload } from '@/types/task';
+import { TeamMemberResponse } from '@/types/team';
 
 const formatDateToYYYYMMDD = (date: Date): string => {
   const year = date.getFullYear();
@@ -37,148 +22,108 @@ const formatDateToYYYYMMDD = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-const getAssigneeId = (assigneeName: string, members: TeamMemberResponse[]): number => {
-  const member = members.find((m) => m.name === assigneeName);
-  return member ? member.userId : 1;
-};
-
 export default function TeamCalendarPage() {
   const params = useParams();
   const teamId = params.id as string;
 
-  const [currentTeamName, setCurrentTeamName] = useState<string>('');
-  const [teamMembers, setTeamMembers] = useState<TeamMemberResponse[]>([]);
   const [activeMonth, setActiveMonth] = useState(new Date());
-  const [tasksForMonth, setTasksForMonth] = useState<Task[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [filterMode, setFilterMode] = useState<'DATE' | 'MONTH'>('DATE');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('전체 팀원');
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [isFetching, setIsFetching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleAssigneeFilterChange = (newFilter: string) => {
-    setAssigneeFilter(newFilter);
-  };
+  const { data: teamDetails, error: teamError } = useSWR(
+    teamId ? ['teamDetails', teamId] : null,
+    () => fetchTeamDetails(teamId)
+  );
 
-  const loadDataForMonth = useCallback(async () => {
-    if (!teamId) return;
-    setIsFetching(true);
-    setError(null);
+  const { startDate, endDate } = useMemo(() => {
+    const year = activeMonth.getFullYear();
+    const month = activeMonth.getMonth();
+    return {
+      startDate: new Date(year, month, 1).toISOString().split('T')[0],
+      endDate: new Date(year, month + 1, 0).toISOString().split('T')[0],
+    };
+  }, [activeMonth]);
+
+  const {
+    data: tasksData,
+    error: tasksError,
+    isLoading: areTasksLoading,
+    mutate: mutateTasks,
+  } = useTasks(teamId, { startDate, endDate, size: 200 });
+
+  const teamMembers: TeamMemberResponse[] = teamDetails?.members || [];
+  const allTasks: Task[] = tasksData?.data?.items || [];
+  const isInitialLoading = !teamDetails && !teamError && !tasksData && !tasksError;
+  const error = teamError || tasksError;
+
+  const handleAddTask = async (payload: TaskCreatePayload) => {
     try {
-      const year = activeMonth.getFullYear();
-      const month = activeMonth.getMonth();
-      const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-      const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
-
-      const [teamDetails, taskListResponse] = await Promise.all([
-        fetchTeamDetails(teamId),
-        fetchTasks(teamId, { startDate, endDate, size: 200 }),
-      ]);
-
-      setCurrentTeamName(teamDetails.teamName);
-      setTeamMembers(teamDetails.members);
-      setTasksForMonth(taskListResponse.items.map(mapResponseToTask));
-    } catch (err) {
-      setError('데이터를 불러오는 데 실패했습니다.');
-    } finally {
-      setIsInitialLoading(false);
-      setIsFetching(false);
-    }
-  }, [teamId, activeMonth]);
-
-  useEffect(() => {
-    loadDataForMonth();
-  }, [loadDataForMonth]);
-
-  const handleCRUD = async (action: Promise<any>) => {
-    try {
-      await action;
-      await loadDataForMonth();
-    } catch (err) {
-      toast.error('요청 처리에 실패했습니다.');
+      await createTask(teamId, payload);
+      toast.success('태스크가 추가되었습니다.');
+      mutateTasks();
+    } catch {
+      toast.error('태스크 추가에 실패했습니다.');
     }
   };
 
-  const handleAddTask = (newTaskData: Omit<Task, 'id' | 'teamId'>) => {
-    const requestData = {
-      title: newTaskData.title,
-      description: newTaskData.description,
-      assigneeId: getAssigneeId(newTaskData.assignee, teamMembers),
-      priority:
-        newTaskData.priority === '높음'
-          ? 'HIGH'
-          : newTaskData.priority === '보통'
-            ? 'MEDIUM'
-            : 'LOW',
-      status:
-        newTaskData.status === '완료'
-          ? 'DONE'
-          : newTaskData.status === '진행'
-            ? 'PROCESSING'
-            : 'TODO',
-      due: newTaskData.dueDate ? `${newTaskData.dueDate}T09:00:00` : null,
-    };
-    handleCRUD(createTask(teamId, requestData as TaskCreatePayload));
+  const handleUpdateTask = async (taskId: number, payload: TaskUpdatePayload) => {
+    try {
+      await updateTask(taskId, payload);
+      toast.success('태스크가 수정되었습니다.');
+      mutateTasks();
+    } catch {
+      toast.error('태스크 수정에 실패했습니다.');
+    }
   };
 
-  const handleUpdateTask = (updatedTask: Task) => {
-    const requestData = {
-      title: updatedTask.title,
-      description: updatedTask.description,
-      assigneeId: getAssigneeId(updatedTask.assignee, teamMembers),
-      priority:
-        updatedTask.priority === '높음'
-          ? 'HIGH'
-          : updatedTask.priority === '보통'
-            ? 'MEDIUM'
-            : 'LOW',
-      status:
-        updatedTask.status === '완료'
-          ? 'DONE'
-          : updatedTask.status === '진행'
-            ? 'PROCESSING'
-            : 'TODO',
-      due: updatedTask.dueDate ? `${updatedTask.dueDate}T00:00:00` : null,
-    };
-    handleCRUD(updateTask(updatedTask.id, requestData as any));
+  const handleDeleteTask = async (taskId: number) => {
+    try {
+      await deleteTask(taskId);
+      toast.success('태스크가 삭제되었습니다.');
+      mutateTasks();
+    } catch {
+      toast.error('태스크 삭제에 실패했습니다.');
+    }
   };
 
-  const handleDeleteTask = (taskId: number) => handleCRUD(deleteTask(taskId));
-
-  const handleToggleTaskStatus = (taskId: number) => {
-    const task = tasksForMonth.find((t) => t.id === taskId);
-    if (!task) return;
-    const nextStatus = task.status === '완료' ? 'PROCESSING' : 'DONE';
-    handleCRUD(changeTaskStatus(taskId, nextStatus));
+  const handleToggleTaskStatus = async (
+    taskId: number,
+    currentStatus: '완료' | '진행' | '대기'
+  ) => {
+    try {
+      const nextStatus = currentStatus === '완료' ? 'PROCESSING' : 'DONE';
+      await updateTaskStatus(taskId, nextStatus);
+      mutateTasks();
+    } catch {
+      toast.error('상태 변경에 실패했습니다.');
+    }
   };
-
   const filteredTasks = useMemo(() => {
     if (assigneeFilter === '전체 팀원') {
-      return tasksForMonth;
+      return allTasks;
     }
-    return tasksForMonth.filter((task) => task.assignee === assigneeFilter);
-  }, [tasksForMonth, assigneeFilter]);
+    return allTasks.filter((task) => task.assigneeName === assigneeFilter);
+  }, [allTasks, assigneeFilter]);
 
   const tasksForList = useMemo(() => {
     if (filterMode === 'MONTH') {
       return filteredTasks;
     }
     const selectedDateStr = formatDateToYYYYMMDD(selectedDate);
-    return filteredTasks.filter((task) => task.dueDate === selectedDateStr);
+    return filteredTasks.filter((task) => task.due && task.due.startsWith(selectedDateStr));
   }, [filteredTasks, selectedDate, filterMode]);
 
-  if (isInitialLoading) {
+  if (isInitialLoading)
     return (
       <MainLayout>
         <div>Loading...</div>
       </MainLayout>
     );
-  }
   if (error)
     return (
       <MainLayout>
-        <div>Error: {error}</div>
+        <div>Error: 데이터를 불러오는 데 실패했습니다.</div>
       </MainLayout>
     );
 
@@ -186,7 +131,7 @@ export default function TeamCalendarPage() {
     <MainLayout>
       <div
         className={`flex flex-col lg:flex-row gap-6 p-4 justify-center items-start transition-opacity duration-300 ${
-          isFetching ? 'opacity-50' : 'opacity-100'
+          areTasksLoading ? 'opacity-50' : 'opacity-100'
         }`}
       >
         <Calendar
@@ -196,7 +141,7 @@ export default function TeamCalendarPage() {
             setFilterMode('DATE');
           }}
           tasks={filteredTasks}
-          teamName={currentTeamName}
+          teamName={teamDetails?.teamName || ''}
           onActiveStartDateChange={({ activeStartDate }) =>
             activeStartDate && setActiveMonth(activeStartDate)
           }
@@ -215,7 +160,7 @@ export default function TeamCalendarPage() {
           filterMonth={activeMonth}
           teamMembers={teamMembers}
           currentAssigneeFilter={assigneeFilter}
-          onAssigneeFilterChange={handleAssigneeFilterChange}
+          onAssigneeFilterChange={setAssigneeFilter}
         />
       </div>
     </MainLayout>

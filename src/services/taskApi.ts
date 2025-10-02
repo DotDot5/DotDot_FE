@@ -17,6 +17,8 @@ export interface GetTasksParams {
   size?: number;
   sort?: string;
   assigneeUserId?: number;
+  startDate?: string;
+  endDate?: string;
 }
 
 /**
