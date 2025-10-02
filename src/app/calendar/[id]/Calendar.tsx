@@ -33,8 +33,8 @@ export default function MyCalendar({
   activeStartDate,
 }: CalendarProps) {
   const datesWithDots = tasks
-    .filter((task) => task.dueDate)
-    .map((task) => formatDateForDot(new Date(task.dueDate!)));
+    .filter((task) => task.due)
+    .map((task) => formatDateForDot(new Date(task.due!)));
 
   const currentMonth =
     (value instanceof Date ? value : Array.isArray(value) ? value[0] : new Date()) || new Date();

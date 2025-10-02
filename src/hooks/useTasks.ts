@@ -1,40 +1,33 @@
 import useSWR from 'swr';
-import {
-  listTeamTasks,
-  type ListTeamTasksParams,
-  type TaskItem,
-  type TaskSummary,
-  type TaskPage,
-} from '@/api/tasks';
+
+import { getTasks, GetTasksParams } from '@/services/taskApi';
+
+import { TaskListResponse } from '@/types/task';
 
 type UseTasksResult = {
-  items: TaskItem[] | undefined;
-  summary: TaskSummary | undefined;
-  page: TaskPage | undefined;
+  data: TaskListResponse | undefined;
   isLoading: boolean;
   error: any;
+  mutate: (data?: any, shouldRevalidate?: boolean) => Promise<any>;
 };
 
-export function useTasks(teamId?: string | number, options?: ListTeamTasksParams): UseTasksResult {
-  const key = teamId
-    ? [
-        'tasks',
-        String(teamId),
-        options?.meetingId ?? null,
-        options?.date ?? null,
-        options?.page ?? 0,
-        options?.size ?? 10,
-        options?.sort ?? '',
-      ]
-    : null;
+/**
+ * 팀 태스크 목록을 SWR로 가져오는 Custom Hook
+ * @param teamId - 조회할 팀 ID
+ * @param options - 페이지, 정렬 등 조회 옵션
+ * @returns 태스크 데이터, 로딩 상태, 에러 객체
+ */
+export function useTasks(teamId?: string | number, options?: GetTasksParams): UseTasksResult {
+  const key = teamId ? ['tasks', String(teamId), options] : null;
 
-  const { data, isLoading, error } = useSWR(key, () => listTeamTasks(teamId!, options ?? {}));
+  const { data, isLoading, error, mutate } = useSWR<TaskListResponse>(key, () =>
+    getTasks(teamId!, options ?? {})
+  );
 
   return {
-    items: data?.items,
-    summary: data?.summary,
-    page: data?.page,
+    data,
     isLoading,
     error,
+    mutate,
   };
 }

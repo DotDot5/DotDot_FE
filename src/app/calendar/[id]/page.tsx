@@ -6,7 +6,6 @@ import { useParams } from 'next/navigation';
 import MainLayout from '@/components/layout/MainLayout';
 import Calendar from './Calendar';
 import TaskList from './TaskList';
-import { Task, TeamMemberResponse } from '@/types/task';
 
 import {
   fetchTasks,
@@ -14,13 +13,14 @@ import {
   updateTask,
   deleteTask,
   changeTaskStatus,
-  TaskResponse,
-  TaskCreateRequest,
 } from '@/services/taskApi';
+
+import { Task, TaskCreatePayload } from '@/types/task';
+import { TeamMemberResponse } from '@/types/team';
 import { fetchTeamDetails } from '@/services/teamApi';
 import { toast } from 'sonner';
 
-const mapResponseToTask = (res: TaskResponse): Task => ({
+const mapResponseToTask = (res: Task): Task => ({
   id: res.taskId,
   title: res.title,
   description: res.description,
@@ -109,17 +109,17 @@ export default function TeamCalendarPage() {
         newTaskData.priority === '높음'
           ? 'HIGH'
           : newTaskData.priority === '보통'
-          ? 'MEDIUM'
-          : 'LOW',
+            ? 'MEDIUM'
+            : 'LOW',
       status:
         newTaskData.status === '완료'
           ? 'DONE'
           : newTaskData.status === '진행'
-          ? 'PROCESSING'
-          : 'TODO',
+            ? 'PROCESSING'
+            : 'TODO',
       due: newTaskData.dueDate ? `${newTaskData.dueDate}T09:00:00` : null,
     };
-    handleCRUD(createTask(teamId, requestData as TaskCreateRequest));
+    handleCRUD(createTask(teamId, requestData as TaskCreatePayload));
   };
 
   const handleUpdateTask = (updatedTask: Task) => {
@@ -131,14 +131,14 @@ export default function TeamCalendarPage() {
         updatedTask.priority === '높음'
           ? 'HIGH'
           : updatedTask.priority === '보통'
-          ? 'MEDIUM'
-          : 'LOW',
+            ? 'MEDIUM'
+            : 'LOW',
       status:
         updatedTask.status === '완료'
           ? 'DONE'
           : updatedTask.status === '진행'
-          ? 'PROCESSING'
-          : 'TODO',
+            ? 'PROCESSING'
+            : 'TODO',
       due: updatedTask.dueDate ? `${updatedTask.dueDate}T00:00:00` : null,
     };
     handleCRUD(updateTask(updatedTask.id, requestData as any));

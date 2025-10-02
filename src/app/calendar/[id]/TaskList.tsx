@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
-import { Task, TeamMemberResponse } from '@/types/task';
+import { Task } from '@/types/task';
+import { TeamMemberResponse } from '@/types/team';
 
 const formatDateWithoutFns = (date: Date | null): string => {
   if (!date) return '';
