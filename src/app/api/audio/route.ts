@@ -120,9 +120,17 @@ export async function GET(request: NextRequest) {
       updated: metadata.updated,
     });
   } catch (error) {
-    console.error('Error retrieving audio file:', error);
+    console.error('--- Error in GET /api/audio ---', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+
     return NextResponse.json(
-      { error: '오디오 파일을 불러오는 중 서버 오류가 발생했습니다.' },
+      {
+        error: '오디오 파일을 불러오는 중 서버 오류가 발생했습니다.',
+        details: errorMessage,
+        name: errorName,
+      },
       { status: 500 }
     );
   }
@@ -184,9 +192,17 @@ export async function POST(request: Request) {
       success: true,
     });
   } catch (error) {
-    console.error('Error uploading audio file:', error);
+    console.error('--- Error in POST /api/audio ---', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+
     return NextResponse.json(
-      { error: '오디오 파일 업로드 중 오류가 발생했습니다.' },
+      {
+        error: '오디오 파일 업로드 중 오류가 발생했습니다.',
+        details: errorMessage,
+        name: errorName,
+      },
       { status: 500 }
     );
   }
