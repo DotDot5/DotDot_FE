@@ -91,7 +91,8 @@ export default function TaskList({
     const description = formData.get('taskDescription') as string;
     const assigneeName = formData.get('taskAssignee') as string;
     const priorityLabel = formData.get('taskPriority') as '높음' | '보통' | '낮음';
-    const due = formData.get('taskDueDate') as string;
+    const dueDate = formData.get('taskDueDate') as string;
+    const due = dueDate ? `${dueDate}T09:00:00` : '';
     const statusLabel = formData.get('taskStatus') as '완료' | '진행' | '대기';
 
     const selectedMember = teamMembers.find((member) => member.name === assigneeName);
