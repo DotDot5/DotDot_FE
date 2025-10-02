@@ -103,6 +103,7 @@ export default function TaskList({
       priority: priorityLabelMap[priorityLabel],
       status: statusLabelMap[statusLabel],
       due,
+      meetingId: null,
     };
 
     if (editingTask) {

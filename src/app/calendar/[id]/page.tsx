@@ -50,10 +50,16 @@ export default function TeamCalendarPage() {
     error: tasksError,
     isLoading: areTasksLoading,
     mutate: mutateTasks,
-  } = useTasks(teamId, { startDate, endDate, size: 200 });
+  } = useTasks(teamId, {
+    startDate,
+    endDate,
+    size: 200,
+    page: 0,
+    sort: encodeURIComponent('status,asc'),
+  });
 
   const teamMembers: TeamMemberResponse[] = teamDetails?.members || [];
-  const allTasks: Task[] = tasksData?.data?.items || [];
+  const allTasks: Task[] = tasksData?.items || [];
   const isInitialLoading = !teamDetails && !teamError && !tasksData && !tasksError;
   const error = teamError || tasksError;
 
