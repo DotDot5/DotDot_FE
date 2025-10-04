@@ -175,7 +175,6 @@ export default function MeetingPage() {
   const [openEmailIndex, setOpenEmailIndex] = useState<number | null>(null);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
-  const router = useRouter();
 
   const toggleAccordion = (idx: number) => setOpenEmailIndex((prev) => (prev === idx ? null : idx));
 

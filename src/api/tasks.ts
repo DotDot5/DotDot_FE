@@ -1,64 +1,69 @@
 import axiosInstance from '@/lib/axiosInstance';
+import { Task } from '@/types/task';
 
-export interface TaskItem {
-  taskId: number;
-  teamId: number;
-  meetingId: number;
-  title: string;
-  description?: string;
-  assigneeUserId?: number;
-  assigneeName?: string;
-  assigneeProfileImageUrl?: string;
-  priorityLabel?: string; // '높음' | '보통' | '낮음'
-  statusLabel?: string; // '대기' | '진행' | '완료'
-  due?: string; // ISO
-}
-
-export interface TaskSummary {
-  todo: number;
-  processing: number;
-  done: number;
-}
-
-export interface TaskPage {
-  number: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-}
-
-export interface TaskListPayload {
-  items: TaskItem[];
-  summary: TaskSummary;
-  page: TaskPage;
-}
-
-export interface TaskListResponse {
-  status: string;
-  timestamp: string;
-  data: TaskListPayload;
-}
-
-export type ListTeamTasksParams = {
-  date?: string; // 'YYYY-MM-DD'
-  meetingId?: number; // 현재 회의 ID
-  page?: number;
-  size?: number;
-  sort?: string; // 'status,asc' | 'priority,desc' 등
+/**
+ *
+ * @param teamId
+ * @returns
+ */
+export const getTasksByTeam = async (teamId: string): Promise<Task[]> => {
+  try {
+    const response = await axiosInstance.get(`/api/v1/teams/${teamId}/tasks`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching tasks for team ${teamId}:`, error);
+    return [];
+  }
 };
 
-export async function listTeamTasks(
-  teamId: string | number,
-  params: ListTeamTasksParams
-): Promise<TaskListPayload> {
-  const res = await axiosInstance.get<TaskListResponse>(`/api/v1/teams/${teamId}/tasks`, {
-    params,
-  });
-  const body = res.data?.data ?? {
-    items: [],
-    summary: { todo: 0, processing: 0, done: 0 },
-    page: { number: 0, size: 10, totalElements: 0, totalPages: 0 },
-  };
-  const items = Array.isArray(body.items) ? body.items : [];
-  return { ...body, items };
-}
+/**
+ *
+ * @param teamId
+ * @param taskData
+ * @returns
+ */
+export const createTask = async (
+  teamId: string,
+  taskData: Omit<Task, 'task_id' | 'team_id'>
+): Promise<Task> => {
+  try {
+    const response = await axiosInstance.post(`/api/v1/teams/${teamId}/tasks`, taskData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error creating task for team ${teamId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ *
+ * @param taskId
+ * @param taskData
+ * @returns
+ */
+export const updateTask = async (
+  taskId: number,
+  taskData: Partial<Omit<Task, 'task_id' | 'team_id'>>
+): Promise<Task> => {
+  try {
+    // PUT은 전체 리소스를 교체, PATCH는 일부 필드만 변경합니다. 백엔드 구현에 따라 선택하세요.
+    const response = await axiosInstance.patch(`/api/v1/tasks/${taskId}`, taskData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating task ${taskId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ *
+ * @param taskId
+ */
+export const deleteTask = async (taskId: number): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/api/v1/tasks/${taskId}`);
+  } catch (error) {
+    console.error(`Error deleting task ${taskId}:`, error);
+    throw error;
+  }
+};
