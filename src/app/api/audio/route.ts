@@ -3,6 +3,26 @@ import { Storage } from '@google-cloud/storage';
 
 export const dynamic = 'force-dynamic';
 
+function initializeStorageClient(): Storage {
+  if (process.env.GOOGLE_CREDENTIALS) {
+    //전체 json 파일로 환경변수 설정
+    return new Storage({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+    });
+  }
+  if (process.env.GCS_PROJECT_ID && process.env.GCS_CLIENT_EMAIL && process.env.GCS_PRIVATE_KEY) {
+    //환경변수 따로 설정
+    return new Storage({
+      projectId: process.env.GCS_PROJECT_ID,
+      credentials: {
+        client_email: process.env.GCS_CLIENT_EMAIL,
+        private_key: process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      },
+    });
+  }
+  return new Storage();
+}
+
 export async function GET(request: NextRequest) {
   console.log('Audio API GET request received');
 
@@ -34,7 +54,7 @@ export async function GET(request: NextRequest) {
     let storageClient: Storage;
 
     try {
-      storageClient = new Storage();
+      storageClient = initializeStorageClient();
       console.log('Google Cloud Storage client initialized successfully');
     } catch (err) {
       console.error('Failed to initialize Google Cloud Storage client:', err);
@@ -165,7 +185,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const storageClient = new Storage();
+    const storageClient = initializeStorageClient();
     const audioBytes = Buffer.from(await audioFile.arrayBuffer());
     const fileName = `meeting_${meetingId}_${Date.now()}.webm`;
     const gcsPath = `audios/${fileName}`;
