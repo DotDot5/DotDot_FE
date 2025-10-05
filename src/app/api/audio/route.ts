@@ -3,6 +3,26 @@ import { Storage } from '@google-cloud/storage';
 
 export const dynamic = 'force-dynamic';
 
+function initializeStorageClient(): Storage {
+  if (process.env.GOOGLE_CREDENTIALS) {
+    //전체 json 파일로 환경변수 설정
+    return new Storage({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+    });
+  }
+  if (process.env.GCS_PROJECT_ID && process.env.GCS_CLIENT_EMAIL && process.env.GCS_PRIVATE_KEY) {
+    //환경변수 따로 설정
+    return new Storage({
+      projectId: process.env.GCS_PROJECT_ID,
+      credentials: {
+        client_email: process.env.GCS_CLIENT_EMAIL,
+        private_key: process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      },
+    });
+  }
+  return new Storage();
+}
+
 export async function GET(request: NextRequest) {
   console.log('Audio API GET request received');
 
@@ -34,7 +54,7 @@ export async function GET(request: NextRequest) {
     let storageClient: Storage;
 
     try {
-      storageClient = new Storage();
+      storageClient = initializeStorageClient();
       console.log('Google Cloud Storage client initialized successfully');
     } catch (err) {
       console.error('Failed to initialize Google Cloud Storage client:', err);
@@ -120,9 +140,17 @@ export async function GET(request: NextRequest) {
       updated: metadata.updated,
     });
   } catch (error) {
-    console.error('Error retrieving audio file:', error);
+    console.error('--- Error in GET /api/audio ---', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+
     return NextResponse.json(
-      { error: '오디오 파일을 불러오는 중 서버 오류가 발생했습니다.' },
+      {
+        error: '오디오 파일을 불러오는 중 서버 오류가 발생했습니다.',
+        details: errorMessage,
+        name: errorName,
+      },
       { status: 500 }
     );
   }
@@ -157,7 +185,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const storageClient = new Storage();
+    const storageClient = initializeStorageClient();
     const audioBytes = Buffer.from(await audioFile.arrayBuffer());
     const fileName = `meeting_${meetingId}_${Date.now()}.webm`;
     const gcsPath = `audios/${fileName}`;
@@ -184,9 +212,17 @@ export async function POST(request: Request) {
       success: true,
     });
   } catch (error) {
-    console.error('Error uploading audio file:', error);
+    console.error('--- Error in POST /api/audio ---', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+
     return NextResponse.json(
-      { error: '오디오 파일 업로드 중 오류가 발생했습니다.' },
+      {
+        error: '오디오 파일 업로드 중 오류가 발생했습니다.',
+        details: errorMessage,
+        name: errorName,
+      },
       { status: 500 }
     );
   }

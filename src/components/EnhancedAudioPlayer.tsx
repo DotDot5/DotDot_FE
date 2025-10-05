@@ -16,19 +16,24 @@ interface EnhancedAudioPlayerProps {
   speechLogs?: SpeechLogDto[];
   title?: string;
   onTimeUpdate?: (currentTime: number) => void;
-  initialDuration?: number; // DB에서 받아올 오디오 길이 prop
+  initialDuration?: number;
 }
 
-// 부모 컴포넌트에서 호출할 수 있는 함수 타입을 정의
 export interface AudioPlayerHandle {
   seekToTime: (time: number) => void;
 }
 
 const EnhancedAudioPlayer = forwardRef<AudioPlayerHandle, EnhancedAudioPlayerProps>(
   ({ audioUrl, speechLogs = [], title = '회의 오디오', onTimeUpdate, initialDuration }, ref) => {
+    console.log('[EnhancedAudioPlayer Props]', {
+      audioUrl,
+      speechLogs,
+      title,
+      initialDuration,
+    });
+
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
-    // DB에서 받은 initialDuration을 초기값으로 사용
     const [duration, setDuration] = useState(initialDuration || 0);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
@@ -41,15 +46,16 @@ const EnhancedAudioPlayer = forwardRef<AudioPlayerHandle, EnhancedAudioPlayerPro
       const audio = audioRef.current;
       if (!audio) return;
 
-      // DB에서 duration 값을 받았다면, 그 값을 바로 설정
+      console.log('[EnhancedAudioPlayer] useEffect triggered. URL:', audioUrl);
+
       if (initialDuration) {
         setDuration(initialDuration);
         setIsLoading(false);
       }
 
       const handleMetadata = () => {
-        // initialDuration이 없을 때만 파일 분석을 통해 duration 설정
         if (!initialDuration && audio && isFinite(audio.duration)) {
+          console.log('[EnhancedAudioPlayer] Duration from metadata:', audio.duration);
           setDuration(audio.duration);
         }
         setIsLoading(false);
@@ -63,10 +69,15 @@ const EnhancedAudioPlayer = forwardRef<AudioPlayerHandle, EnhancedAudioPlayerPro
         setIsPlaying(false);
         setCurrentTime(0);
       };
-      const handleError = () => {
-        setError('오디오 재생 중 오류가 발생했습니다.');
+
+      const handleError = (e: Event) => {
+        const mediaError = (e.target as HTMLAudioElement).error;
+        console.error('Audio Element Error Event:', e);
+        console.error('Specific Media Error:', mediaError);
+        setError(`오디오 오류 발생 (Code: ${mediaError?.code}). 개발자 콘솔을 확인하세요.`);
         setIsLoading(false);
       };
+
       const handleCanPlay = () => {
         setIsLoading(false);
         handleMetadata();
@@ -101,7 +112,6 @@ const EnhancedAudioPlayer = forwardRef<AudioPlayerHandle, EnhancedAudioPlayerPro
       }
     };
 
-    // 부모가 ref를 통해 seekToTime을 호출할 수 있도록 노출
     useImperativeHandle(ref, () => ({
       seekToTime,
     }));
@@ -112,7 +122,10 @@ const EnhancedAudioPlayer = forwardRef<AudioPlayerHandle, EnhancedAudioPlayerPro
       if (isPlaying) {
         audio.pause();
       } else {
-        audio.play().catch(() => setError('오디오 재생에 실패했습니다.'));
+        audio.play().catch((err) => {
+          console.error('Audio play() failed:', err);
+          setError('오디오 재생에 실패했습니다. (개발자 콘솔 확인)');
+        });
       }
       setIsPlaying(!isPlaying);
     };
