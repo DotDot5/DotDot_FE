@@ -111,8 +111,8 @@ const ParticipantsList = ({ participants }: { participants: Participant[] }) => 
         const initial = displayName
           ? displayName.charAt(0).toUpperCase()
           : p.email
-          ? p.email.charAt(0).toUpperCase()
-          : '?';
+            ? p.email.charAt(0).toUpperCase()
+            : '?';
         const avatarUrl =
           p.profileImageUrl && p.profileImageUrl !== 'basic' ? p.profileImageUrl : null;
 
@@ -175,7 +175,9 @@ export default function MeetingDetailPage() {
   const [participantCount, setParticipantCount] = useState(0);
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
   const [meetingNotes, setMeetingNotes] = useState('');
-  const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME'>('REALTIME');
+  // const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME'>('REALTIME');
+  const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME' | 'NONE'>('REALTIME');
+
   const [teamId, setTeamId] = useState<number>(0);
   // const [newMessage, setNewMessage] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -578,10 +580,27 @@ export default function MeetingDetailPage() {
   const handleEndMeeting = async () => {
     try {
       // 전체 플로우 로딩 on
-      setIsTranscribing(true);
+      // setIsTranscribing(true);
 
       // 0) 서버에 최신 회의 정보 저장
       await handleUpdateMeeting();
+
+      if (meetingMethod === 'NONE') {
+        await updateMeetingStatus(Number(meetingId), 'FINISHED');
+        // 선택: 챗봇 세션 정리 (에러 무시)
+        await endChatbot(meetingId).catch(() => {});
+        // const query = new URLSearchParams({
+        //   title: encodeURIComponent(meetingTitle),
+        //   date: encodeURIComponent(meetingDate),
+        //   participants: String(participantCount),
+        //   participantsData: encodeURIComponent(JSON.stringify(participants)),
+        // }).toString();
+        // router.push(`/meeting/${meetingId}/result?${query}`);
+        router.push(`/team/records/${meetingId}`);
+        return;
+      }
+
+      setIsTranscribing(true);
 
       // 1) 업로드할 오디오 파악 및 길이 계산
       const [h, m, s] = recordingTime.split(':').map(Number);
@@ -718,6 +737,7 @@ export default function MeetingDetailPage() {
     if (isTranscribing) {
       return postLabel || '처리 중...';
     }
+    if (meetingMethod === 'NONE') return '녹음 없이 회의 중';
     if (meetingMethod === 'REALTIME' && isRecording) return '회의 진행 중';
     if (meetingMethod === 'REALTIME' && isMeetingEnded) return '회의 녹음 종료';
     if (meetingMethod === 'RECORD' && uploadedFile) {
@@ -767,6 +787,17 @@ export default function MeetingDetailPage() {
           <Card className="border border-gray-200">
             <CardContent className="p-6 relative">
               {/* 회의 종료 버튼: 우상단 고정 */}
+              {/* <Button
+                onClick={handleEndMeeting}
+                className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2 absolute right-6 top-6"
+                disabled={
+                  isTranscribing ||
+                  (meetingMethod === 'REALTIME' && !recordedBlob) ||
+                  (meetingMethod === 'RECORD' && !uploadedFile)
+                }
+              >
+                {isTranscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '회의 종료'}
+              </Button> */}
               <Button
                 onClick={handleEndMeeting}
                 className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2 absolute right-6 top-6"
@@ -774,6 +805,7 @@ export default function MeetingDetailPage() {
                   isTranscribing ||
                   (meetingMethod === 'REALTIME' && !recordedBlob) ||
                   (meetingMethod === 'RECORD' && !uploadedFile)
+                  // NONE일 땐 위 조건이 모두 false라 버튼 활성
                 }
               >
                 {isTranscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '회의 종료'}
@@ -896,59 +928,60 @@ export default function MeetingDetailPage() {
         </div>
 
         {/* Fixed Recording Controls - 하단 오버레이 */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pointer-events-none">
-          <div className="pointer-events-auto">
-            {meetingMethod === 'REALTIME' ? (
-              <Card className="bg-gray-400 text-white shadow-xl">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        {isRecording && (
-                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                        )}
-                        <span className="font-mono text-lg">{recordingTime}</span>
-                        <span className="text-sm">{getMeetingStatusText()}</span>
+        {meetingMethod !== 'NONE' && (
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pointer-events-none">
+            <div className="pointer-events-auto">
+              {meetingMethod === 'REALTIME' ? (
+                <Card className="bg-gray-400 text-white shadow-xl">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          {isRecording && (
+                            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                          )}
+                          <span className="font-mono text-lg">{recordingTime}</span>
+                          <span className="text-sm">{getMeetingStatusText()}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {/* 회의 시작 전 상태: 시작 버튼 */}
-                      {!isRecording && !isMeetingEnded && (
-                        <Button
-                          onClick={handleStartRecording}
-                          size="sm"
-                          variant="ghost"
-                          className="text-white hover:bg-[#333333] p-2"
-                        >
-                          <Play className="w-5 h-5" />
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {/* 회의 시작 전 상태: 시작 버튼 */}
+                        {!isRecording && !isMeetingEnded && (
+                          <Button
+                            onClick={handleStartRecording}
+                            size="sm"
+                            variant="ghost"
+                            className="text-white hover:bg-[#333333] p-2"
+                          >
+                            <Play className="w-5 h-5" />
+                          </Button>
+                        )}
 
-                      {/* 회의 진행 중 상태: 일시정지/재개, 정지 버튼 */}
-                      {isRecording && (
-                        <>
-                          <Button
-                            onClick={handlePauseResumeRecording}
-                            size="sm"
-                            variant="ghost"
-                            className="text-white hover:bg-[#333333] p-2"
-                          >
-                            {isPaused ? (
-                              <Play className="w-5 h-5" />
-                            ) : (
-                              <Pause className="w-5 h-5" />
-                            )}
-                          </Button>
-                          <Button
-                            onClick={handleStopRecording}
-                            size="sm"
-                            variant="ghost"
-                            className="text-white hover:bg-[#333333] p-2"
-                          >
-                            <Square className="w-5 h-5" />
-                          </Button>
-                          {/* 북마크 버튼 */}
-                          {/* <Button
+                        {/* 회의 진행 중 상태: 일시정지/재개, 정지 버튼 */}
+                        {isRecording && (
+                          <>
+                            <Button
+                              onClick={handlePauseResumeRecording}
+                              size="sm"
+                              variant="ghost"
+                              className="text-white hover:bg-[#333333] p-2"
+                            >
+                              {isPaused ? (
+                                <Play className="w-5 h-5" />
+                              ) : (
+                                <Pause className="w-5 h-5" />
+                              )}
+                            </Button>
+                            <Button
+                              onClick={handleStopRecording}
+                              size="sm"
+                              variant="ghost"
+                              className="text-white hover:bg-[#333333] p-2"
+                            >
+                              <Square className="w-5 h-5" />
+                            </Button>
+                            {/* 북마크 버튼 */}
+                            {/* <Button
                             // onClick={handleAddBookmark}
                             size="sm"
                             variant="ghost"
@@ -958,58 +991,59 @@ export default function MeetingDetailPage() {
                           >
                             <Bookmark className="w-5 h-5" />
                           </Button> */}
-                        </>
-                      )}
+                          </>
+                        )}
 
-                      {/* 회의 녹음 종료 상태: 다운로드 버튼 */}
-                      {isMeetingEnded && recordedBlob && (
-                        <Button
-                          onClick={handleDownloadRecording}
-                          size="sm"
-                          className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
-                        >
-                          <Download className="w-5 h-5" />
-                          다운로드
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="bg-gray-400 text-white shadow-xl">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        {uploadedFile && <div className="flex items-center"></div>}
-                        <span className="text-sm">{getMeetingStatusText()}</span>
+                        {/* 회의 녹음 종료 상태: 다운로드 버튼 */}
+                        {isMeetingEnded && recordedBlob && (
+                          <Button
+                            onClick={handleDownloadRecording}
+                            size="sm"
+                            className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
+                          >
+                            <Download className="w-5 h-5" />
+                            다운로드
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        accept="audio/*"
-                        className="hidden"
-                      />
-                      <Button
-                        onClick={triggerFileUpload}
-                        size="sm"
-                        className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
-                        disabled={isTranscribing}
-                      >
-                        <Upload className="w-5 h-5" />
-                        파일 업로드
-                      </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-gray-400 text-white shadow-xl">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          {uploadedFile && <div className="flex items-center"></div>}
+                          <span className="text-sm">{getMeetingStatusText()}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleFileUpload}
+                          accept="audio/*"
+                          className="hidden"
+                        />
+                        <Button
+                          onClick={triggerFileUpload}
+                          size="sm"
+                          className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
+                          disabled={isTranscribing}
+                        >
+                          <Upload className="w-5 h-5" />
+                          파일 업로드
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* AI Assistant Sidebar - 오른쪽 독립 스크롤 */}

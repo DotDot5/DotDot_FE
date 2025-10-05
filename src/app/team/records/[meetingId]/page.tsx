@@ -45,7 +45,8 @@ interface MeetingDetailResponse {
   participants: Participant[];
   agendas: AgendaItem[];
   note: string;
-  meetingMethod: 'RECORD' | 'REALTIME';
+  // meetingMethod: 'RECORD' | 'REALTIME';
+  meetingMethod: 'RECORD' | 'REALTIME' | 'NONE';
   teamId: number;
   duration?: number;
 }
@@ -91,8 +92,17 @@ export default function MeetingDetailPage() {
 
   const audioPlayerRef = useRef<AudioPlayerHandle>(null);
 
-  const { data: summary, isLoading: loadingSummary } = useMeetingSummary(meetingId);
-  const { data: recs, isLoading: loadingRecs } = useMeetingRecommendations(meetingId);
+  const isNone = meetingDetail?.meetingMethod === 'NONE';
+
+  // const { data: summary, isLoading: loadingSummary } = useMeetingSummary(meetingId);
+  // const { data: recs, isLoading: loadingRecs } = useMeetingRecommendations(meetingId);
+  const { data: summary, isLoading: loadingSummary } = useMeetingSummary(
+    meetingDetail?.meetingMethod === 'NONE' ? undefined : meetingId
+  );
+
+  const { data: recs, isLoading: loadingRecs } = useMeetingRecommendations(
+    meetingDetail?.meetingMethod === 'NONE' ? undefined : meetingId
+  );
 
   const recList = useMemo(() => {
     if (Array.isArray(recs)) return recs;
@@ -116,8 +126,13 @@ export default function MeetingDetailPage() {
       return;
     }
 
-    const normalizeMethod = (m: string): 'RECORD' | 'REALTIME' =>
-      m === 'REALTIME' ? 'REALTIME' : 'RECORD';
+    // const normalizeMethod = (m: string): 'RECORD' | 'REALTIME' =>
+    //   m === 'REALTIME' ? 'REALTIME' : 'RECORD';
+    const normalizeMethod = (m?: string | null): 'RECORD' | 'REALTIME' | 'NONE' => {
+      if (m === 'REALTIME') return 'REALTIME';
+      if (m === 'RECORD') return 'RECORD';
+      return 'NONE'; // 그 외(미설정 포함)는 NONE 처리
+    };
 
     const fetchData = async () => {
       if (!meetingId) return;
@@ -139,8 +154,13 @@ export default function MeetingDetailPage() {
           throw new Error('Invalid meeting detail response');
         }
 
-        const normalizeMethod = (m: string | undefined | null): 'RECORD' | 'REALTIME' =>
-          m === 'REALTIME' ? 'REALTIME' : 'RECORD';
+        // const normalizeMethod = (m: string | undefined | null): 'RECORD' | 'REALTIME' =>
+        //   m === 'REALTIME' ? 'REALTIME' : 'RECORD';
+        const normalizeMethod = (m?: string | null): 'RECORD' | 'REALTIME' | 'NONE' => {
+          if (m === 'REALTIME') return 'REALTIME';
+          if (m === 'RECORD') return 'RECORD';
+          return 'NONE'; // 그 외(미설정 포함)는 NONE 처리
+        };
 
         console.log('=== STT 결과 조회 시작 ===');
         const stt = await getMeetingSttResult(meetingId);
@@ -314,7 +334,19 @@ export default function MeetingDetailPage() {
       {/* 왼쪽 영역: 회의 정보 및 음성 기록 */}
       <div className="w-2/3 flex flex-col overflow-hidden bg-white border-r border-gray-200">
         {/* 오디오 플레이어 */}
-        {audioUrl && sttResult?.speechLogs && meetingDetail && (
+        {/* {audioUrl && sttResult?.speechLogs && meetingDetail && (
+          <div className="flex-shrink-0 p-4 border-b border-gray-200">
+            <EnhancedAudioPlayer
+              ref={audioPlayerRef}
+              audioUrl={audioUrl}
+              speechLogs={sttResult.speechLogs}
+              title={`${meetingDetail.title} 녹음`}
+              onTimeUpdate={handleAudioTimeUpdate}
+              initialDuration={meetingDetail.duration}
+            />
+          </div>
+        )} */}
+        {!isNone && audioUrl && sttResult?.speechLogs && meetingDetail && (
           <div className="flex-shrink-0 p-4 border-b border-gray-200">
             <EnhancedAudioPlayer
               ref={audioPlayerRef}
@@ -404,46 +436,67 @@ export default function MeetingDetailPage() {
             </section>
 
             {/* STT 결과 표시 영역 */}
-            <section>
-              <h2 className="text-2xl font-bold mb-4">음성 기록</h2>
-              {sttResult && sttResult.speechLogs && sttResult.speechLogs.length > 0 ? (
-                <div className="bg-gray-50 p-4 rounded-lg border">
-                  <div className="mb-3 text-sm text-gray-600 flex items-center space-x-4">
-                    {/* <span>💡 발언 내용을 클릭하면 해당 시점으로 오디오가 이동합니다.</span> */}
-                    <span className="flex items-center space-x-1">
-                      <svg
-                        className="w-4 h-4 text-yellow-600"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                      </svg>
-                      <span>북마크 아이콘을 클릭하여 중요한 내용을 저장하세요.</span>
-                    </span>
+            {!isNone && (
+              <section>
+                <h2 className="text-2xl font-bold mb-4">음성 기록</h2>
+                {sttResult && sttResult.speechLogs && sttResult.speechLogs.length > 0 ? (
+                  <div className="bg-gray-50 p-4 rounded-lg border">
+                    <div className="mb-3 text-sm text-gray-600 flex items-center space-x-4">
+                      {/* <span>💡 발언 내용을 클릭하면 해당 시점으로 오디오가 이동합니다.</span> */}
+                      <span className="flex items-center space-x-1">
+                        <svg
+                          className="w-4 h-4 text-yellow-600"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                        </svg>
+                        <span>북마크 아이콘을 클릭하여 중요한 내용을 저장하세요.</span>
+                      </span>
+                    </div>
+                    <ScriptTranscript
+                      speechLogs={sttResult.speechLogs}
+                      currentTime={currentAudioTime}
+                      onScriptClick={audioUrl ? handleScriptClick : undefined}
+                      onBookmarkToggle={handleBookmarkToggle}
+                      isBookmarked={isBookmarked}
+                    />
                   </div>
-                  <ScriptTranscript
-                    speechLogs={sttResult.speechLogs}
-                    currentTime={currentAudioTime}
-                    onScriptClick={audioUrl ? handleScriptClick : undefined}
-                    onBookmarkToggle={handleBookmarkToggle}
-                    isBookmarked={isBookmarked}
-                  />
-                </div>
-              ) : (
-                <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 min-h-[200px]">
-                  <p className="text-gray-500">음성 기록이 없습니다.</p>
-                </div>
-              )}
-            </section>
+                ) : (
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 min-h-[200px]">
+                    <p className="text-gray-500">음성 기록이 없습니다.</p>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         </div>
       </div>
 
       {/* 오른쪽 영역: 요약 및 자료 */}
-      <div className="w-1/3 p-6 overflow-y-auto bg-[#f7f7f7]">
+      {/* <div className="w-1/3 p-6 overflow-y-auto bg-[#f7f7f7]">
         <div className="space-y-6">
           <SummarySection summary={summaryText} loading={loadingSummary} />
           <RecommandSection items={recList} loading={loadingRecs} />
+        </div>
+      </div> */}
+      <div className="w-1/3 p-6 overflow-y-auto bg-[#f7f7f7]">
+        <div className="space-y-6">
+          {isNone ? (
+            <>
+              <div className="bg-white p-4 rounded-lg border text-sm text-gray-600">
+                녹음 없이 진행된 회의입니다. <b>자동 요약</b>은 생성되지 않습니다.
+              </div>
+              <div className="bg-white p-4 rounded-lg border text-sm text-gray-600">
+                녹음 없이 진행된 회의입니다. <b>추천 자료</b>는 생성되지 않습니다.
+              </div>
+            </>
+          ) : (
+            <>
+              <SummarySection summary={summaryText} loading={loadingSummary} />
+              <RecommandSection items={recList} loading={loadingRecs} />
+            </>
+          )}
         </div>
       </div>
     </div>
