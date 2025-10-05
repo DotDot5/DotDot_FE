@@ -105,6 +105,7 @@ export default function TeamCalendarPage() {
       toast.error('상태 변경에 실패했습니다.');
     }
   };
+
   const filteredTasks = useMemo(() => {
     if (assigneeFilter === '전체 팀원') {
       return allTasks;
@@ -114,11 +115,19 @@ export default function TeamCalendarPage() {
 
   const tasksForList = useMemo(() => {
     if (filterMode === 'MONTH') {
-      return filteredTasks;
+      const year = activeMonth.getFullYear();
+      const month = activeMonth.getMonth();
+
+      return filteredTasks.filter((task) => {
+        if (!task.due) return false;
+        const taskDate = new Date(task.due);
+        return taskDate.getFullYear() === year && taskDate.getMonth() === month;
+      });
     }
+
     const selectedDateStr = formatDateToYYYYMMDD(selectedDate);
     return filteredTasks.filter((task) => task.due && task.due.startsWith(selectedDateStr));
-  }, [filteredTasks, selectedDate, filterMode]);
+  }, [filteredTasks, selectedDate, filterMode, activeMonth]);
 
   if (isInitialLoading)
     return (
