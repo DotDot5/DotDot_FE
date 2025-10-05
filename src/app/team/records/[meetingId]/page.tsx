@@ -169,10 +169,13 @@ export default function MeetingDetailPage() {
                 console.log('서명된 URL 생성 성공:', audioData.audioUrl);
                 setAudioUrl(audioData.audioUrl);
               } else {
-                const errorText = await audioResponse.text();
-                console.error('서명된 URL 생성 실패:', errorText);
-                console.warn('오디오 플레이어 비활성화');
-                setAudioUrl(null); // GCS URL을 직접 사용하지 않음
+                console.error('오디오 API 응답 실패 Status:', audioResponse.status);
+                const errorData = await audioResponse.json();
+                console.error('--- 상세 오류  ---');
+                console.error('Error Name:', errorData.name);
+                console.error('Error Details:', errorData.details);
+                toast.error(`오디오 처리 실패: ${errorData.details || '서버 오류'}`);
+                setAudioUrl(null);
               }
             } catch (audioError) {
               console.error('오디오 API 호출 실패:', audioError);
