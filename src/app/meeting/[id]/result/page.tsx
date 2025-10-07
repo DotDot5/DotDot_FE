@@ -170,7 +170,7 @@ async function sendEmail({ to, subject, html }: { to: string[]; subject: string;
  * Page
  * =============================== */
 export default function MeetingPage() {
-  const router = useRouter();
+  // const router = useRouter();
   const [showTodos, setShowTodos] = useState(true);
   const [openEmailIndex, setOpenEmailIndex] = useState<number | null>(null);
   const [showPdfModal, setShowPdfModal] = useState(false);
@@ -218,6 +218,11 @@ export default function MeetingPage() {
 
   const participants = detail?.participants ?? [];
   const [checked, setChecked] = useState<boolean[]>([]);
+  useEffect(() => {
+     if (detail && detail.meetingMethod === 'NONE' && meetingId) {
+       router.replace(`/team/records/${meetingId}`);
+     }
+   }, [detail, meetingId, router]);
 
   useEffect(() => {
     setChecked(new Array(participants.length).fill(false));
@@ -235,6 +240,7 @@ export default function MeetingPage() {
     }
     router.push(`/team/records/${meetingId}`);
   };
+  
 
   const meetingData = useMemo(
     () => ({

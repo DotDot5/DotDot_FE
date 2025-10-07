@@ -165,7 +165,8 @@ export default function MeetingInfoPage() {
                 minute: '2-digit',
                 hour12: false,
               }),
-              recordType: meetingDetail.meetingMethod as 'RECORD' | 'REALTIME',
+              // recordType: meetingDetail.meetingMethod as 'RECORD' | 'REALTIME',
+              recordType: meetingDetail.meetingMethod as 'RECORD' | 'REALTIME' | 'NONE',
               members: meetingDetail.participants.map((p) => ({
                 userId: p.userId,
                 name: p.userName,
@@ -218,8 +219,15 @@ export default function MeetingInfoPage() {
               <Video className="w-4 h-4 text-[#666666]" />
               <span className="text-[#999999]">기록 방식</span>
             </div>
-            <span className="font-medium">
+            {/* <span className="font-medium">
               {meetingDetail.meetingMethod === 'RECORD' ? '파일 업로드' : '실시간 녹음'}
+            </span> */}
+            <span className="font-medium">
+              {meetingDetail.meetingMethod === 'RECORD'
+                ? '파일 업로드'
+                : meetingDetail.meetingMethod === 'REALTIME'
+                  ? '실시간 녹음'
+                  : '녹음 없음'}
             </span>
           </div>
         </div>
