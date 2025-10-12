@@ -170,7 +170,7 @@ async function sendEmail({ to, subject, html }: { to: string[]; subject: string;
  * Page
  * =============================== */
 export default function MeetingPage() {
-  // const router = useRouter();
+  const router = useRouter();
   const [showTodos, setShowTodos] = useState(true);
   const [openEmailIndex, setOpenEmailIndex] = useState<number | null>(null);
   const [showPdfModal, setShowPdfModal] = useState(false);
