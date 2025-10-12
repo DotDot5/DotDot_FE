@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
-import { Task, TeamMemberResponse } from '@/types/task';
+import { Task, TaskCreatePayload, TaskUpdatePayload, TaskStatus, TaskPriority } from '@/types/task';
+import { TeamMemberResponse } from '@/types/team';
 
 const formatDateWithoutFns = (date: Date | null): string => {
   if (!date) return '';
@@ -20,16 +21,25 @@ interface TaskListProps {
   filterMode: TaskFilterMode;
   filterMonth: Date | null;
   tasks: Task[];
-  onAddTask: (
-    newTaskData: Omit<Task, 'id' | 'status'> & { status: '완료' | '대기' | '진행' }
-  ) => void;
-  onUpdateTask: (updatedTask: Task) => void;
+  onAddTask: (newTaskData: TaskCreatePayload) => void;
+  onUpdateTask: (taskId: number, updatedTaskData: TaskUpdatePayload) => void;
   onDeleteTask: (taskId: number) => void;
-  onToggleTaskStatus: (taskId: number) => void;
+  onToggleTaskStatus: (taskId: number, currentStatus: '완료' | '진행' | '대기') => void;
   currentAssigneeFilter: string;
   onAssigneeFilterChange: (newFilter: string) => void;
   teamMembers: TeamMemberResponse[];
 }
+
+const statusLabelMap: Record<'완료' | '진행' | '대기', TaskStatus> = {
+  완료: 'DONE',
+  진행: 'PROCESSING',
+  대기: 'TODO',
+};
+const priorityLabelMap: Record<'높음' | '보통' | '낮음', TaskPriority> = {
+  높음: 'HIGH',
+  보통: 'MEDIUM',
+  낮음: 'LOW',
+};
 
 export default function TaskList({
   selectedDate,
@@ -58,9 +68,9 @@ export default function TaskList({
     displayDateText = `${year}.${month}월`;
   }
 
-  const completedTasksCount = tasks.filter((task) => task.status === '완료').length;
-  const inProgressTasksCount = tasks.filter((task) => task.status === '진행').length;
-  const pendingTasksCount = tasks.filter((task) => task.status === '대기').length;
+  const completedTasksCount = tasks.filter((task) => task.statusLabel === '완료').length;
+  const inProgressTasksCount = tasks.filter((task) => task.statusLabel === '진행').length;
+  const pendingTasksCount = tasks.filter((task) => task.statusLabel === '대기').length;
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => {
@@ -73,19 +83,41 @@ export default function TaskList({
     openModal();
   };
 
-  const handleAddTaskSubmit = (newTaskData: Omit<Task, 'id'>) => {
-    onAddTask(newTaskData as any);
-    closeModal();
-  };
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
 
-  const handleUpdateTaskSubmit = (updatedTaskData: Task) => {
-    onUpdateTask(updatedTaskData);
+    const title = formData.get('taskTitle') as string;
+    const description = formData.get('taskDescription') as string;
+    const assigneeName = formData.get('taskAssignee') as string;
+    const priorityLabel = formData.get('taskPriority') as '높음' | '보통' | '낮음';
+    const dueDate = formData.get('taskDueDate') as string;
+    const due = dueDate ? `${dueDate}T09:00:00` : '';
+    const statusLabel = formData.get('taskStatus') as '완료' | '진행' | '대기';
+
+    const selectedMember = teamMembers.find((member) => member.name === assigneeName);
+
+    const payload = {
+      title,
+      description,
+      assigneeId: selectedMember ? selectedMember.userId : null,
+      priority: priorityLabelMap[priorityLabel],
+      status: statusLabelMap[statusLabel],
+      due,
+      meetingId: null,
+    };
+
+    if (editingTask) {
+      onUpdateTask(editingTask.taskId, payload);
+    } else {
+      onAddTask(payload);
+    }
     closeModal();
   };
 
   const handleDeleteClick = () => {
     if (editingTask) {
-      setTaskIdToDelete(editingTask.id);
+      setTaskIdToDelete(editingTask.taskId);
       setIsConfirmModalOpen(true);
       setIsModalOpen(false);
     }
@@ -113,7 +145,7 @@ export default function TaskList({
   };
 
   const getDefaultDueDate = () => {
-    if (editingTask?.dueDate) return editingTask.dueDate;
+    if (editingTask?.due) return editingTask.due;
     if (selectedDate && filterMode === 'DATE') return formatDateWithoutFns(selectedDate);
     return '';
   };
@@ -185,58 +217,58 @@ export default function TaskList({
       <div className="space-y-4 max-h-[calc(100vh-25rem)] overflow-y-auto pr-2">
         {tasks.map((task) => (
           <div
-            key={task.id}
+            key={task.taskId}
             className="bg-white rounded-lg p-4 shadow-sm flex items-start space-x-3 cursor-pointer hover:bg-gray-100 transition-colors"
             onClick={(e) => handleTaskClick(e, task)}
           >
             <input
               type="checkbox"
               className="mt-1 h-5 w-5 text-yellow-500 border-gray-300 rounded focus:ring-yellow-400"
-              checked={task.status === '완료'}
+              checked={task.statusLabel === '완료'}
               onChange={(e) => {
                 e.stopPropagation();
-                onToggleTaskStatus(task.id);
+                onToggleTaskStatus(task.taskId, task.statusLabel);
               }}
             />
             <div className="flex-1">
               <h3
                 className={`font-semibold text-gray-900 ${
-                  task.status === '완료' ? 'line-through text-gray-400' : ''
+                  task.statusLabel === '완료' ? 'line-through text-gray-400' : ''
                 }`}
               >
                 {task.title}
               </h3>
               <p className="text-gray-600 text-sm">{task.description}</p>
-              {task.assignee && <p className="text-gray-500 text-xs">{task.assignee}</p>}
-              {task.dueDate && <p className="text-gray-500 text-xs mt-1">마감일: {task.dueDate}</p>}
+              {task.assigneeName && <p className="text-gray-500 text-xs">{task.assigneeName}</p>}
+              {task.due && <p className="text-gray-500 text-xs mt-1">마감일: {task.due}</p>}
             </div>
             <div className="flex flex-col items-end space-y-1 min-w-[60px]">
-              {task.priority === '높음' && (
+              {task.priorityLabel === '높음' && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                   높음
                 </span>
               )}
-              {task.priority === '보통' && (
+              {task.priorityLabel === '보통' && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                   보통
                 </span>
               )}
-              {task.priority === '낮음' && (
+              {task.priorityLabel === '낮음' && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   낮음
                 </span>
               )}
-              {task.status === '완료' && (
+              {task.statusLabel === '완료' && (
                 <span className="flex items-center text-green-600 text-xs font-semibold">
                   <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span> 완료
                 </span>
               )}
-              {task.status === '진행' && (
+              {task.statusLabel === '진행' && (
                 <span className="flex items-center text-blue-600 text-xs font-semibold">
                   <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span> 진행
                 </span>
               )}
-              {task.status === '대기' && (
+              {task.statusLabel === '대기' && (
                 <span className="flex items-center text-gray-600 text-xs font-semibold">
                   <span className="w-2 h-2 bg-gray-500 rounded-full mr-1"></span> 대기
                 </span>
@@ -250,25 +282,7 @@ export default function TaskList({
         onClose={closeModal}
         title={editingTask ? '작업 수정하기' : '작업 추가하기'}
       >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            const submitData = {
-              title: formData.get('taskTitle') as string,
-              description: formData.get('taskDescription') as string,
-              assignee: formData.get('taskAssignee') as string,
-              priority: formData.get('taskPriority') as '낮음' | '보통' | '높음',
-              dueDate: formData.get('taskDueDate') as string,
-              status: formData.get('taskStatus') as '완료' | '대기' | '진행',
-            };
-            if (editingTask) {
-              handleUpdateTaskSubmit({ ...submitData, id: editingTask.id });
-            } else {
-              handleAddTaskSubmit(submitData);
-            }
-          }}
-        >
+        <form onSubmit={handleFormSubmit}>
           <div className="mb-4">
             <label htmlFor="taskTitle" className="block text-sm font-medium text-gray-700">
               작업 제목*
@@ -304,7 +318,7 @@ export default function TaskList({
                 name="taskAssignee"
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 sm:text-sm"
                 required
-                defaultValue={editingTask?.assignee || ''}
+                defaultValue={editingTask?.assigneeName || ''}
               >
                 <option value="" disabled hidden>
                   담당자를 선택해주세요
@@ -324,7 +338,7 @@ export default function TaskList({
                 id="taskPriority"
                 name="taskPriority"
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 sm:text-sm"
-                defaultValue={editingTask?.priority || '보통'}
+                defaultValue={editingTask?.priorityLabel || '보통'}
               >
                 <option value="낮음">낮음</option>
                 <option value="보통">보통</option>
@@ -353,7 +367,7 @@ export default function TaskList({
                 id="taskStatus"
                 name="taskStatus"
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 sm:text-sm"
-                defaultValue={editingTask?.status || '대기'}
+                defaultValue={editingTask?.statusLabel || '대기'}
               >
                 <option value="대기">대기</option>
                 <option value="진행">진행</option>

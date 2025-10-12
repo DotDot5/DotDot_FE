@@ -30,7 +30,8 @@ export default function MeetingCreateModal({
     title: string;
     date: Date;
     time: string;
-    recordType: 'RECORD' | 'REALTIME';
+    // recordType: 'RECORD' | 'REALTIME';
+    recordType: 'RECORD' | 'REALTIME' | 'NONE';
     members: Array<{ userId?: number; name: string; role: string }>;
     agendaItems: Array<{ type: string; content: string }>;
   };
@@ -61,8 +62,11 @@ export default function MeetingCreateModal({
         hour12: false,
       })
   );
-  const [recordType, setRecordType] = useState<'REALTIME' | 'RECORD'>(
-    existingMeeting?.recordType === 'REALTIME' ? 'REALTIME' : 'REALTIME'
+  // const [recordType, setRecordType] = useState<'REALTIME' | 'RECORD'>(
+  //   existingMeeting?.recordType === 'REALTIME' ? 'REALTIME' : 'REALTIME'
+  // );
+  const [recordType, setRecordType] = useState<'REALTIME' | 'RECORD' | 'NONE'>(
+    existingMeeting?.recordType ?? 'REALTIME'
   );
 
   // 팀원 관련 상태
@@ -552,6 +556,14 @@ export default function MeetingCreateModal({
                   onChange={() => setRecordType('RECORD')}
                 />
                 파일 업로드
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-[#000000]">
+                <input
+                  type="radio"
+                  checked={recordType === 'NONE'}
+                  onChange={() => setRecordType('NONE')}
+                />
+                녹음 없음
               </label>
             </div>
           </div>

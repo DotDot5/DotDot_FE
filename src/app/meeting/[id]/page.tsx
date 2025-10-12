@@ -354,7 +354,7 @@ export default function MeetingDetailPage() {
 
       const newMediaRecorder = new MediaRecorder(combinedDestination.stream, {
         mimeType: 'audio/webm;codecs=opus',
-        bitsPerSecond: 128000, // 비트레이트 설정 (높을수록 좋음)
+        bitsPerSecond: 128000,
       });
       newMediaRecorder.start();
       setIsRecording(true);
@@ -399,40 +399,89 @@ export default function MeetingDetailPage() {
     }
   };
 
+  const uploadAudioToGCS = async (audioBlob: Blob, meetingId: number): Promise<string> => {
+    try {
+      const mimeType = audioBlob.type || 'audio/webm';
+      const cleanMimeType = mimeType.split(';')[0];
+      const extension = cleanMimeType.split('/')[1] || 'webm';
+      const token = localStorage.getItem('accessToken');
+
+      const response = await fetch('/api/audio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          meetingId,
+          fileName: `audio_${Date.now()}.${extension}`,
+          contentType: mimeType,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to get signed URL');
+      }
+
+      const { uploadUrl, audioId } = await response.json();
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': mimeType,
+        },
+        body: audioBlob,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error(`GCS upload failed: ${uploadResponse.status} - ${errorText}`);
+      }
+
+      return audioId;
+    } catch (error) {
+      console.error('Audio upload to GCS failed:', error);
+      throw error;
+    }
+  };
+
   const uploadRecordingForTranscription = async (file: Blob | File, duration: number) => {
-    const formData = new FormData();
-    formData.append('audio', file, `meeting_${meetingId}.webm`);
-    formData.append('meetingId', String(meetingId));
-    formData.append('duration', String(duration));
+    try {
+      const audioId = await uploadAudioToGCS(file, meetingId);
+      console.log(' GCS 업로드 성공:', audioId);
 
-    // 오류나서 주석처리
-    //   try {
-    //     const response = await fetch('/api/transcribe', {
-    //       method: 'POST',
-    //       body: formData,
-    //     });
+      const token = localStorage.getItem('accessToken');
+      const requestBody = {
+        audioId,
+        meetingId,
+        duration,
+      };
 
-    //     if (!response.ok) {
-    //       throw new Error('Transcription failed');
-    //     }
-    //     const result = await response.json();
-    //     return result;
-    //   } catch (error) {
-    //     console.error('음성 분석 업로드 실패:', error);
-    //     alert('음성 분석 중 오류가 발생했습니다.');
-    //   } finally {
-    //     setIsTranscribing(false);
-    //   }
-    const token = localStorage.getItem('accessToken');
-    const response = await fetch('/api/transcribe', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
-    if (!response.ok) throw new Error('Transcription failed');
-    return response.json(); // 필요하면 호출부에서 활용
+      console.log('📤 STT API 요청:', requestBody);
+
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('📥 STT API 응답 상태:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ STT API 에러 상세:', errorData);
+        throw new Error(errorData.error || 'Transcription failed');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('음성 분석 업로드 실패:', error);
+      throw error;
+    }
   };
   // 녹음 파일 다운로드 함수
   const handleDownloadRecording = () => {

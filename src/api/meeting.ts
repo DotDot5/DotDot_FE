@@ -7,7 +7,7 @@ interface ApiResponse<T> {
   message?: string;
   status: number;
 }
-export type MeetingMethod = 'RECORD' | 'REALTIME';
+export type MeetingMethod = 'RECORD' | 'REALTIME' | 'NONE';
 
 export interface Meeting {
   meetingId: number;
