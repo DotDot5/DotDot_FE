@@ -5,13 +5,11 @@ export const dynamic = 'force-dynamic';
 
 function initializeStorageClient(): Storage {
   if (process.env.GOOGLE_CREDENTIALS) {
-    //전체 json 파일로 환경변수 설정
     return new Storage({
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
     });
   }
   if (process.env.GCS_PROJECT_ID && process.env.GCS_CLIENT_EMAIL && process.env.GCS_PRIVATE_KEY) {
-    //환경변수 따로 설정
     return new Storage({
       projectId: process.env.GCS_PROJECT_ID,
       credentials: {
@@ -118,24 +116,26 @@ export async function GET(request: NextRequest) {
 
     console.log(`Processing audio file: ${targetFile.name}`);
 
+    // 파일의 실제 메타데이터 먼저 가져오기
+    const [metadata] = await targetFile.getMetadata();
+    const contentType = metadata.contentType || 'audio/webm';
+
     const options = {
       version: 'v4' as const,
       action: 'read' as const,
       expires: Date.now() + 60 * 60 * 1000,
-      responseType: 'audio/webm',
+      responseType: contentType,
     };
 
     const [signedUrl] = await targetFile.getSignedUrl(options);
 
     console.log(`Generated signed URL for audio file: ${targetFile.name}`);
 
-    const [metadata] = await targetFile.getMetadata();
-
     return NextResponse.json({
       audioUrl: signedUrl,
       fileName: targetFile.name,
       fileSize: metadata.size,
-      contentType: metadata.contentType || 'audio/webm',
+      contentType: contentType,
       created: metadata.timeCreated,
       updated: metadata.updated,
     });
@@ -157,24 +157,18 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
-  console.log('Audio API POST request received for upload');
+  console.log('Audio API POST request received for Signed URL generation');
 
   try {
-    const formData = await request.formData();
-    const audioFile = formData.get('audio') as Blob | null;
-    const meetingIdField = formData.get('meetingId');
+    const body = await request.json();
+    const { meetingId, fileName, contentType } = body;
 
-    if (!audioFile || !(audioFile instanceof Blob)) {
-      return NextResponse.json({ error: 'Audio file not provided.' }, { status: 400 });
-    }
-
-    if (!meetingIdField) {
+    if (!meetingId) {
       return NextResponse.json({ error: 'Meeting ID not provided.' }, { status: 400 });
     }
 
-    const meetingId = parseInt(meetingIdField.toString(), 10);
-    if (isNaN(meetingId)) {
-      return NextResponse.json({ error: 'Invalid Meeting ID.' }, { status: 400 });
+    if (!fileName) {
+      return NextResponse.json({ error: 'File name not provided.' }, { status: 400 });
     }
 
     const bucketName = process.env.GOOGLE_CLOUD_STORAGE_BUCKET;
@@ -186,29 +180,30 @@ export async function POST(request: Request) {
     }
 
     const storageClient = initializeStorageClient();
-    const audioBytes = Buffer.from(await audioFile.arrayBuffer());
-    const fileName = `meeting_${meetingId}_${Date.now()}.webm`;
-    const gcsPath = `audios/${fileName}`;
+
+    // 원본 확장자 유지
+    const extension = fileName.split('.').pop() || 'webm';
+    const timestamp = Date.now();
+    const gcsFileName = `meeting_${meetingId}_${timestamp}.${extension}`;
+    const gcsPath = `audios/${gcsFileName}`;
 
     const file = storageClient.bucket(bucketName).file(gcsPath);
 
-    await file.save(audioBytes, {
-      metadata: {
-        contentType: 'audio/webm',
-        metadata: {
-          meetingId: meetingId.toString(),
-          uploadedAt: new Date().toISOString(),
-        },
-      },
+    const [uploadUrl] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'write',
+      expires: Date.now() + 180 * 60 * 1000, // 180분 유효
+      contentType: contentType || 'audio/webm',
     });
 
-    console.log(`Audio file uploaded to GCS: gs://${bucketName}/${gcsPath}`);
+    console.log(`Generated signed upload URL for: gs://${bucketName}/${gcsPath}`);
 
     return NextResponse.json({
-      message: '오디오 파일이 성공적으로 업로드되었습니다.',
-      fileName: fileName,
+      uploadUrl,
+      fileName: gcsFileName,
       gcsPath: `gs://${bucketName}/${gcsPath}`,
       audioId: `gs://${bucketName}/${gcsPath}`,
+      message: 'Signed URL generated. Upload directly to GCS using PUT request.',
       success: true,
     });
   } catch (error) {
@@ -219,7 +214,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error: '오디오 파일 업로드 중 오류가 발생했습니다.',
+        error: 'Signed URL 생성 중 오류가 발생했습니다.',
         details: errorMessage,
         name: errorName,
       },

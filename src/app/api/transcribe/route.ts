@@ -1,11 +1,7 @@
-// route.ts
 import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { SpeechClient } from '@google-cloud/speech';
 import { Storage } from '@google-cloud/storage';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
 
 export const dynamic = 'force-dynamic';
 const backendBaseUrl = process.env.BACKEND_API_URL || 'http://localhost:8080';
@@ -29,12 +25,25 @@ function getGoogleCredentials() {
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
     return {
       credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON),
-    }; // Vercel 배포 환경
-  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    };
+  }
+
+  if (process.env.GCS_PROJECT_ID && process.env.GCS_CLIENT_EMAIL && process.env.GCS_PRIVATE_KEY) {
+    return {
+      projectId: process.env.GCS_PROJECT_ID,
+      credentials: {
+        client_email: process.env.GCS_CLIENT_EMAIL,
+        private_key: process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      },
+    };
+  }
+
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     return {
       keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
     };
   }
+
   throw new Error('Google Cloud credentials not configured');
 }
 
@@ -46,17 +55,32 @@ function hmsToSeconds(hms: string): number {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
+function getEncodingFromUri(gcsUri: string): string {
+  const extension = gcsUri.split('.').pop()?.toLowerCase() || 'webm';
+
+  const encodingMap: { [key: string]: string } = {
+    webm: 'WEBM_OPUS',
+    opus: 'WEBM_OPUS',
+    mp3: 'MP3',
+    mpeg: 'MP3',
+    mp4: 'MP3',
+    m4a: 'MP3',
+    wav: 'LINEAR16',
+    flac: 'FLAC',
+    ogg: 'OGG_OPUS',
+  };
+
+  return encodingMap[extension] || 'WEBM_OPUS';
+}
+
 export async function POST(req: Request) {
-  const headersList = headers();
   const authorizationHeader = req.headers.get('authorization');
   console.log('API Route POST request received for transcription');
   let speechClient: SpeechClient;
-  let storageClient: Storage;
 
   try {
     const googleCreds = getGoogleCredentials();
     speechClient = new SpeechClient(googleCreds);
-    storageClient = new Storage(googleCreds);
     console.log('Google Cloud clients initialized successfully');
   } catch (err) {
     console.error('Failed to initialize Google Cloud clients. Check credentials:', err);
@@ -78,60 +102,39 @@ export async function POST(req: Request) {
   }
 
   try {
-    const formData = await req.formData();
-    const audioFile = formData.get('audio') as Blob | null;
-    const meetingIdField = formData.get('meetingId');
-    const durationField = formData.get('duration');
-    const initialRecordingOffsetSecondsField = formData.get('initialRecordingOffsetSeconds');
-    const meetingMethod = formData.get('meetingMethod')?.toString();
+    const body = await req.json();
+    const { audioId, meetingId, duration, initialRecordingOffsetSeconds = 0, meetingMethod } = body;
 
-    if (!audioFile || !(audioFile instanceof Blob)) {
-      console.error('POST processing: No valid audio Blob file included in the request.');
-      return NextResponse.json({ error: 'Audio file not provided.' }, { status: 400 });
+    if (!audioId) {
+      console.error('POST processing: audioId not provided.');
+      return NextResponse.json({ error: 'Audio ID not provided.' }, { status: 400 });
     }
-    if (!meetingIdField) {
+
+    if (!meetingId) {
       console.error('POST processing: Meeting ID not provided.');
       return NextResponse.json({ error: 'Meeting ID not provided.' }, { status: 400 });
     }
 
-    const meetingId = parseInt(meetingIdField.toString(), 10);
-    if (isNaN(meetingId)) {
+    const meetingIdNum = parseInt(String(meetingId), 10);
+    if (isNaN(meetingIdNum)) {
       console.error('POST processing: Invalid Meeting ID provided.');
       return NextResponse.json({ error: 'Invalid Meeting ID.' }, { status: 400 });
     }
 
-    const audioDurationInSeconds = parseFloat(durationField?.toString() || '0');
-    const initialRecordingOffsetSeconds = parseFloat(
-      initialRecordingOffsetSecondsField?.toString() || '0'
-    );
+    const audioDurationInSeconds = parseFloat(String(duration || 0));
 
-    const audioBytes = Buffer.from(await audioFile.arrayBuffer());
-    const tempDir = os.tmpdir();
-    const fileName = `meeting_${meetingId}_${Date.now()}.webm`;
-    const filePath = path.join(tempDir, fileName);
-    fs.writeFileSync(filePath, audioBytes);
-
-    console.log(`Successfully saved audio to local temp file: ${filePath}`);
-
-    const gcsPath = `audios/${fileName}`;
-    await storageClient.bucket(bucketName).upload(filePath, {
-      destination: gcsPath,
-      metadata: {
-        contentType: 'audio/webm',
-      },
-    });
-    const gcsUri = `gs://${bucketName}/${gcsPath}`;
-    console.log(`File uploaded to GCS: gs://${bucketName}/${gcsPath}`);
-    const audioUrl = gcsUri;
-    fs.unlinkSync(filePath);
-    console.log(`Local temp file deleted: ${filePath}`);
+    const gcsUri = audioId.startsWith('gs://') ? audioId : `gs://${bucketName}/${audioId}`;
+    console.log(`Using GCS URI for STT: ${gcsUri}`);
 
     const audio = {
-      uri: `gs://${bucketName}/${gcsPath}`,
+      uri: gcsUri,
     };
 
+    const encoding = getEncodingFromUri(gcsUri);
+    console.log(`Detected encoding: ${encoding} from URI: ${gcsUri}`);
+
     const config = {
-      encoding: 'WEBM_OPUS' as const,
+      encoding: encoding as any,
       sampleRateHertz: 48000,
       languageCode: 'ko-KR',
       model: 'latest_long',
@@ -267,13 +270,14 @@ export async function POST(req: Request) {
     }
 
     try {
-      const updateBackendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`;
+      //const updateBackendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingIdNum}/stt-result`; //배포
+      const updateBackendUrl = `http://localhost:8080/api/v1/meetings/${meetingIdNum}/stt-result`; //로컬
       console.log(`Calling Spring Boot backend at: ${updateBackendUrl}`);
 
       const requestBody = {
         duration: durationToSave,
         transcript: fullTranscript,
-        audio_id: audioUrl,
+        audio_id: gcsUri,
         speechLogs: processedSegments.map((s) => ({
           speakerIndex: s.speaker,
           text: s.text,
@@ -290,7 +294,7 @@ export async function POST(req: Request) {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: authorizationHeader,
+          Authorization: authorizationHeader || '',
         },
         body: JSON.stringify(requestBody),
       });
@@ -310,10 +314,13 @@ export async function POST(req: Request) {
         );
       }
       console.log(
-        `Successfully updated Meeting ID ${meetingId} and saved speech logs via Spring Boot backend`
+        `Successfully updated Meeting ID ${meetingIdNum} and saved speech logs via Spring Boot backend`
       );
     } catch (backendError) {
-      console.error(`Error calling Spring Boot backend (meeting_id: ${meetingId}):`, backendError);
+      console.error(
+        `Error calling Spring Boot backend (meeting_id: ${meetingIdNum}):`,
+        backendError
+      );
       return NextResponse.json(
         {
           error: `Failed to save STT results to DB (Backend error): ${
@@ -346,6 +353,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const sttResultId = searchParams.get('sttResultId');
   const authorizationHeader = request.headers.get('authorization');
+
   if (!sttResultId) {
     return NextResponse.json({ error: 'STT Result ID가 제공되지 않았습니다.' }, { status: 400 });
   }
@@ -356,14 +364,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: '유효하지 않은 STT Result ID입니다.' }, { status: 400 });
     }
 
-    const backendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`;
+    //const backendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`; //배포
+    const backendUrl = `http://localhost:8080/api/v1/meetings/${meetingId}/stt-result`; //로컬
 
     console.log(`[GET /api/transcribe] 백엔드 URL: ${backendUrl}`);
 
     const response = await fetch(backendUrl, {
       method: 'GET',
       headers: {
-        Authorization: authorizationHeader,
+        Authorization: authorizationHeader || '',
       },
     });
 

@@ -46,7 +46,6 @@ export default function MeetingRecordsPage() {
   const handlePrevious = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
   const handleNext = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
-
   return (
     <div className="h-[calc(100vh-4rem)] overflow-y-auto bg-white">
       {/* Yellow Header Section */}
@@ -82,7 +81,9 @@ export default function MeetingRecordsPage() {
                         <Clock className="w-4 h-4" />
                         {/* <span>{record.duration}</span> */}
                         <span>
-                          {Math.floor(record.duration / 60)}시간 {record.duration % 60}분
+                          {`${Math.floor(record.duration / 3600)}시간 ${Math.floor(
+                            (record.duration % 3600) / 60
+                          )}분 ${record.duration % 60}초`}
                         </span>
                       </div>
                     </div>
