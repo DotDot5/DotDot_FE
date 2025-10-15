@@ -251,7 +251,6 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
       const h = teamCardRef.current.getBoundingClientRect().height;
       setTeamBaseHeight(h);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCollapsed, members.length]); // 멤버 수 바뀌면 재측정
 
   useEffect(() => {
@@ -341,9 +340,7 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
         >
           {/* Notice Section */}
           <div className={`bg-gray-50 rounded-2xl p-6 shadow-sm ${isCollapsed ? 'h-full' : ''}`}>
-            <Button className="bg-[#FFD93D] hover:bg-yellow-500 text-black font-medium rounded-full px-4 py-2 mb-4">
-              공지사항
-            </Button>
+            <Button variant="notice">공지사항</Button>
             {isEditingNotice ? (
               <div className="space-y-3">
                 <textarea
