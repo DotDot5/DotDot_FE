@@ -58,7 +58,7 @@ export default function DashboardPage() {
       {/* 최근 회의 목록 */}
       <div className="bg-gray-100 rounded-xl p-3 space-y-2">
         <div className="inline-block">
-          <div className="bg-[#FFD93D] rounded-full px-2 py-0.5 w-32 text-center inline-block">
+          <div className="bg-[#FFD93D] rounded-full px-6 py-1.5 text-center inline-block">
             <span className="text-lg font-bold text-white">최근 회의 목록</span>
           </div>
         </div>
@@ -68,7 +68,7 @@ export default function DashboardPage() {
               {pastMeetings.slice(0, 5).map((meeting) => (
                 <li
                   key={meeting.meetingId}
-                  className="font-semibold cursor-pointer p-2 rounded"
+                  className="font-semibold cursor-pointer p-2 rounded hover:bg-gray-50 transition-colors duration-150"
                   onClick={() => router.push(`/team/records/${meeting.meetingId}`)}
                 >
                   [{meeting.teamName}] {formatDate(meeting.meetingAt)} {meeting.title}
@@ -84,7 +84,7 @@ export default function DashboardPage() {
       {/* 다가오는 회의 */}
       <div className="bg-gray-100 rounded-xl p-3 space-y-2">
         <div className="inline-block">
-          <div className="bg-[#FFD93D] rounded-full px-2 py-0.5 w-32 text-center inline-block">
+          <div className="bg-[#FFD93D] rounded-full px-6 py-1.5 text-center inline-block">
             <span className="text-lg font-bold text-white">다가오는 회의</span>
           </div>
         </div>
@@ -94,7 +94,7 @@ export default function DashboardPage() {
               {upcomingMeetings.slice(0, 5).map((meeting) => (
                 <li
                   key={meeting.meetingId}
-                  className="font-semibold cursor-pointer p-2 rounded"
+                  className="font-semibold cursor-pointer p-2 rounded hover:bg-gray-50 transition-colors duration-150"
                   onClick={() => router.push(`/meeting/${meeting.meetingId}/view`)}
                 >
                   [{meeting.teamName}] {formatDate(meeting.meetingAt)} {meeting.title}
