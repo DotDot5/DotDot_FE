@@ -532,7 +532,7 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
                   <div
                     key={meeting.meetingId}
                     onClick={() => router.push(`/meeting/${meeting.meetingId}/view`)}
-                    className="flex justify-between items-center py-3 border-0"
+                    className="flex justify-between items-center p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors duration-150"
                   >
                     <div>
                       <span className="text-sm text-[#666666] mr-2">
@@ -572,7 +572,7 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
                     <div
                       key={meeting.meetingId}
                       onClick={() => router.push(`/team/records/${meeting.meetingId}`)}
-                      className="p-3 bg-white rounded-xl border border-gray-200"
+                      className="p-3 bg-white rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors duration-150"
                     >
                       <span className="text-sm text-[#666666] mr-2">
                         {formatDateWithDay(meeting.meetingAt)}
