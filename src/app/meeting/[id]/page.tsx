@@ -63,6 +63,43 @@ interface Participant {
   userId?: number;
 }
 
+// const [postLabel, setPostLabel] = useState<string>('');
+
+// 참석자 정보를 표시하는 컴포넌트
+// const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
+//   if (!participants || participants.length === 0) {
+//     return <div className="text-gray-500">참석자 정보가 없습니다.</div>;
+//   }
+
+//   return (
+//     <div className="space-y-2">
+//       {participants.map((participant, index) => (
+//         <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+//           <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+//             {participant.name
+//               ? participant.name.charAt(0).toUpperCase()
+//               : participant.email
+//                 ? participant.email.charAt(0).toUpperCase()
+//                 : '?'}
+//           </div>
+//           <div className="flex-1">
+//             <div className="font-medium text-sm text-gray-900">
+//               {participant.name || '이름 없음'}
+//             </div>
+//             <div className="text-xs text-gray-600">{participant.email || '이메일 없음'}</div>
+//           </div>
+//           {/* 참석자 역할이나 상태가 있다면 표시 */}
+//           {participant.role && (
+//             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+//               {participant.role}
+//             </span>
+//           )}
+//         </div>
+//       ))}
+//     </div>
+//   );
+// };
+
 const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
   if (!participants || participants.length === 0) {
     return <div className="text-gray-500">참석자 정보가 없습니다.</div>;
@@ -150,6 +187,42 @@ export default function MeetingDetailPage() {
 
   const [postLabel, setPostLabel] = useState<string>('');
 
+  // 이메일 유효성 검증 함수
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // 참석자 정보 검증 및 경고 표시
+  const getParticipantValidationWarnings = () => {
+    const warnings = [];
+
+    participants.forEach((participant, index) => {
+      if (!participant.email) {
+        warnings.push(`참석자 ${index + 1}: 이메일이 없습니다.`);
+      } else if (!validateEmail(participant.email)) {
+        warnings.push(`참석자 ${index + 1}: 유효하지 않은 이메일 형식입니다.`);
+      }
+
+      if (!participant.name) {
+        warnings.push(`참석자 ${index + 1}: 이름이 없습니다.`);
+      }
+    });
+
+    return warnings;
+  };
+
+  // 참석자 정보 수정 기능
+  const handleUpdateParticipant = (index: number, field: keyof Participant, value: string) => {
+    const updatedParticipants = [...participants];
+    updatedParticipants[index] = {
+      ...updatedParticipants[index],
+      [field]: value,
+    };
+    setParticipants(updatedParticipants);
+  };
+
+  // 회의 정보 조회 (참석자 데이터 구조 확인 로깅 추가)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -180,7 +253,7 @@ export default function MeetingDetailPage() {
           content: h.content,
           timestamp: new Date(),
         }));
-        setChatMessages(
+        setChatMessages((prev) =>
           mapped.length
             ? mapped
             : [
