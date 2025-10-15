@@ -551,7 +551,7 @@ export default function MeetingDetailPage() {
                     {editableAgendas.map((ag, idx) => (
                       <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-white">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-3 h-3 border-2 border-[#666666] rounded-full"></div>
+                          <div className="w-2 h-2 border-2 border-[#666666] bg-[#666666] rounded-full"></div>
                           <input
                             type="text"
                             value={ag.agenda}
@@ -604,7 +604,6 @@ export default function MeetingDetailPage() {
                 )}{' '}
               </div>
             </section>
-            
             {/* STT 결과 표시 영역 (녹음 없음이면 숨김) */}{' '}
             {!isNone && (
               <section>
