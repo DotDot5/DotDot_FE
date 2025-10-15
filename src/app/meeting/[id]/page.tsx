@@ -422,7 +422,6 @@ export default function MeetingDetailPage() {
     }
   };
 
-  // [V2 기능 통합] GCS 업로드 로직으로 교체된 함수
   const uploadRecordingForTranscription = async (file: Blob | File, duration: number) => {
     try {
       const audioId = await uploadAudioToGCS(file, meetingId);
@@ -524,10 +523,6 @@ export default function MeetingDetailPage() {
     );
   };
 
-  const handleDeleteAgenda = (id: number) => {
-    setAgendaItems(agendaItems.filter((item) => item.id !== id));
-  };
-
   const handleUpdateMeeting = async () => {
     try {
       const normalizedParticipants: MeetingParticipant[] = participants
@@ -622,7 +617,6 @@ export default function MeetingDetailPage() {
 
       if (!file) {
         toast.error('오디오가 없습니다. 녹음을 종료했거나 파일을 업로드해야 합니다.');
-        setIsTranscribing(false); // 로딩 상태 해제
         return;
       }
 
@@ -641,12 +635,29 @@ export default function MeetingDetailPage() {
         defaultDueDays: 7,
       });
 
+      // 1) 원본 응답을 통째로 확인
       console.log('[extractRes raw]', JSON.stringify(extractRes, null, 2));
 
+      // 2) 필수 필드들이 유효한지 빠르게 테이블 체크
+      console.table(
+        (extractRes?.drafts ?? []).map((d) => ({
+          assigneeName: d.assigneeName,
+          title: d.title,
+          priority: d.priority,
+          due: d.due,
+          dueParseOk: !Number.isNaN(Date.parse(d.due ?? '')),
+        }))
+      );
+
+      // // 3) 멤버 매핑까지 미리 확인
+      // const members = await getTeamMembers(String(teamId));
+      // const nameToId = new Map(members.map((m) => [m.name.trim(), m.userId]));
       setPostLabel('태스크 저장 중...');
       if (extractRes?.drafts?.length) {
+        // 팀원 이름 → userId 매핑
         const members = await getTeamMembers(String(teamId));
         const nameToId = new Map(members.map((m) => [m.name, m.userId]));
+        // 임시 숫자: 오늘 + N일을 due로 사용
         const TEMP_DUE_DAYS = 7;
         const makeTempDueISO = () => {
           const d = new Date();
@@ -656,6 +667,7 @@ export default function MeetingDetailPage() {
         const toPriority = (p: any) =>
           p === 'HIGH' || p === 'LOW' || p === 'MEDIUM' ? p : 'MEDIUM';
 
+        // 초안 각각을 실태스크로 저장
         const results = await Promise.allSettled(
           extractRes.drafts.map((d) => {
             const assigneeId = nameToId.get(d.assigneeName);
@@ -712,6 +724,10 @@ export default function MeetingDetailPage() {
       setIsTranscribing(false);
       setPostLabel('');
     }
+  };
+
+  const handleDeleteAgenda = (id: number) => {
+    setAgendaItems(agendaItems.filter((item) => item.id !== id));
   };
 
   const getMeetingStatusText = () => {
