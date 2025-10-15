@@ -847,7 +847,7 @@ export default function MeetingDetailPage() {
                 {agendaItems.map((item) => (
                   <div key={item.id} className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 border-2 border-[#666666] rounded-full"></div>
+                      <div className="w-2 h-2 border-2 border-[#666666] bg-[#666666] rounded-full mr-2"></div>
                       <input
                         type="text"
                         value={item.title}
@@ -908,8 +908,8 @@ export default function MeetingDetailPage() {
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pointer-events-none">
           <div className="pointer-events-auto">
             {meetingMethod === 'REALTIME' ? (
-              <Card className="bg-gray-400 text-white shadow-xl">
-                <CardContent className="p-4">
+              <div className="bg-gray-400 text-white shadow-xl rounded-lg">
+                <div className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
@@ -983,11 +983,11 @@ export default function MeetingDetailPage() {
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ) : (
-              <Card className="bg-gray-400 text-white shadow-xl">
-                <CardContent className="p-4">
+              <div className="bg-gray-400 text-white shadow-xl rounded-lg">
+                <div className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
@@ -1014,8 +1014,8 @@ export default function MeetingDetailPage() {
                       </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
         </div>

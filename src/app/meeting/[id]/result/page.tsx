@@ -206,10 +206,12 @@ export default function MeetingPage() {
 
   const meetingDateYMD = detail?.meetingAt ? detail.meetingAt.slice(0, 10) : undefined;
   const {
-    items: taskItems = [],
-    summary: taskSummary,
+    data, // 훅에서 data 객체를 통째로 받습니다.
     isLoading: loadingTasks,
   } = useTasks(teamId, { meetingId, page: 0, size: 10, sort: 'status,asc' });
+
+  const taskItems = data?.items || [];
+  const taskSummary = data?.data?.summary;
 
   useEffect(() => {
     console.log('[dbg] summary=', summary);
@@ -219,10 +221,10 @@ export default function MeetingPage() {
   const participants = detail?.participants ?? [];
   const [checked, setChecked] = useState<boolean[]>([]);
   useEffect(() => {
-     if (detail && detail.meetingMethod === 'NONE' && meetingId) {
-       router.replace(`/team/records/${meetingId}`);
-     }
-   }, [detail, meetingId, router]);
+    if (detail && detail.meetingMethod === 'NONE' && meetingId) {
+      router.replace(`/team/records/${meetingId}`);
+    }
+  }, [detail, meetingId, router]);
 
   useEffect(() => {
     setChecked(new Array(participants.length).fill(false));
@@ -240,7 +242,6 @@ export default function MeetingPage() {
     }
     router.push(`/team/records/${meetingId}`);
   };
-  
 
   const meetingData = useMemo(
     () => ({
@@ -425,8 +426,8 @@ export default function MeetingPage() {
                     key={String(t.taskId ?? idx)}
                     label={t.title}
                     assignee={t.assigneeName ?? '-'}
-                    dueDate={t.due ? t.due.slice(0, 10) : undefined}
-                    important={['높음', '보통', '낮음'].includes(t.priorityLabel ?? '')}
+                    dueDate={t.due ? t.due.slice(0, 10) : '날짜 미지정'}
+                    important={['HIGH', 'MEDIUM', 'LOW'].includes(t.priority ?? '')}
                   />
                 ))}
             </div>
