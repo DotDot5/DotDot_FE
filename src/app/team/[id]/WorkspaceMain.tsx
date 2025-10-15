@@ -325,13 +325,12 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
   }, [id]);
 
   return (
-    // <div className="min-h-screen bg-white">
     <div className="h-[calc(100vh-4rem)] overflow-y-auto bg-white">
       {/* Yellow Header Section */}
       <div className="bg-[#FFD93D] px-8 py-12">
         <h1 className="text-white text-3xl font-bold">{teamDetail?.teamName}팀의 워크스페이스</h1>
       </div>
-      {/* bg-[#FFD93D] */}
+
       {/* Main Content Cards */}
       <div className="px-8 py-8 bg-white rounded-t-3xl -mt-6 relative">
         {/* Notice and Team Members Section - Split into two cards */}
@@ -369,17 +368,6 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
                 </div>
               </div>
             ) : (
-              //   <p
-              //     className="text-[#333333] text-sm leading-relaxed cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors whitespace-pre-line whitespace-pre-wrap break-words"
-              //     onClick={handleNoticeEdit}
-              //   >
-              //     {noticeText.trim() === '' ? (
-              //       <span className="text-[#666666]">공지사항을 입력하세요...</span>
-              //     ) : (
-              //       noticeText
-              //     )}
-              //   </p>
-              // )}
               <div className="relative pr-10 pb-6">
                 <p
                   className="text-[#333333] text-sm leading-7 whitespace-pre-line break-words cursor-pointer"
@@ -592,17 +580,6 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
                       <span className="text-[#333333] font-medium">{meeting.title}</span>
                     </div>
                   ))}
-
-                  {/* 남은 개수 안내 + 더보기(옵션) */}
-                  {/* {pastMeetings.length > PAST_LIMIT && (
-          <Button
-            variant="outline"
-            onClick={handleViewAllMeetings}
-            className="w-full text-[#666666] border-gray-300 hover:bg-gray-100"
-          >
-            지난 회의록 {pastMeetings.length - PAST_LIMIT}개 더 보기
-          </Button>
-        )} */}
                 </>
               )}
             </CardContent>
