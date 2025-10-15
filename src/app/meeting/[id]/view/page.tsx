@@ -284,7 +284,7 @@ export default function MeetingInfoPage() {
         {meetingDetail.agendas.map((agenda, i) => (
           <div key={i} className="mb-3 last:mb-0">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-3 h-3 border-2 border-[#666666] rounded-full"></div>
+              <div className="w-2 h-2 border-2 border-[#666666] bg-[#666666] rounded-full mr-2"></div>
               <span className="text-sm text-[#000000]">{agenda.agenda}</span>
             </div>
             <textarea
