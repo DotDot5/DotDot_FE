@@ -63,6 +63,42 @@ interface Participant {
   userId?: number;
 }
 
+// const [postLabel, setPostLabel] = useState<string>('');
+
+// 참석자 정보를 표시하는 컴포넌트
+// const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
+//   if (!participants || participants.length === 0) {
+//     return <div className="text-gray-500">참석자 정보가 없습니다.</div>;
+//   }
+
+//   return (
+//     <div className="space-y-2">
+//       {participants.map((participant, index) => (
+//         <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+//           <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+//             {participant.name
+//               ? participant.name.charAt(0).toUpperCase()
+//               : participant.email
+//                 ? participant.email.charAt(0).toUpperCase()
+//                 : '?'}
+//           </div>
+//           <div className="flex-1">
+//             <div className="font-medium text-sm text-gray-900">
+//               {participant.name || '이름 없음'}
+//             </div>
+//             <div className="text-xs text-gray-600">{participant.email || '이메일 없음'}</div>
+//           </div>
+//           {/* 참석자 역할이나 상태가 있다면 표시 */}
+//           {participant.role && (
+//             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+//               {participant.role}
+//             </span>
+//           )}
+//         </div>
+//       ))}
+//     </div>
+//   );
+// };
 const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
   if (!participants || participants.length === 0) {
     return <div className="text-gray-500">참석자 정보가 없습니다.</div>;
@@ -90,6 +126,7 @@ const ParticipantsList = ({ participants }: { participants: Participant[] }) => 
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                   onError={(e) => {
+                    // 이미지 실패 시 이니셜 노출(부모 배경 + 텍스트)
                     (e.currentTarget as HTMLImageElement).style.display = 'none';
                   }}
                 />
@@ -138,11 +175,11 @@ export default function MeetingDetailPage() {
   const [participantCount, setParticipantCount] = useState(0);
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
   const [meetingNotes, setMeetingNotes] = useState('');
-  const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME' | 'NONE'>('REALTIME');
+  const [meetingMethod, setMeetingMethod] = useState<'RECORD' | 'REALTIME'>('REALTIME');
   const [teamId, setTeamId] = useState<number>(0);
+  // const [newMessage, setNewMessage] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
 
-  // 챗봇 관련 상태
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isAsking, setIsAsking] = useState(false);
@@ -150,12 +187,58 @@ export default function MeetingDetailPage() {
 
   const [postLabel, setPostLabel] = useState<string>('');
 
+  // 이메일 유효성 검증 함수
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // 참석자 정보 검증 및 경고 표시
+  const getParticipantValidationWarnings = () => {
+    const warnings = [];
+
+    participants.forEach((participant, index) => {
+      if (!participant.email) {
+        warnings.push(`참석자 ${index + 1}: 이메일이 없습니다.`);
+      } else if (!validateEmail(participant.email)) {
+        warnings.push(`참석자 ${index + 1}: 유효하지 않은 이메일 형식입니다.`);
+      }
+
+      if (!participant.name) {
+        warnings.push(`참석자 ${index + 1}: 이름이 없습니다.`);
+      }
+    });
+
+    return warnings;
+  };
+
+  // 참석자 정보 수정 기능
+  const handleUpdateParticipant = (index: number, field: keyof Participant, value: string) => {
+    const updatedParticipants = [...participants];
+    updatedParticipants[index] = {
+      ...updatedParticipants[index],
+      [field]: value,
+    };
+    setParticipants(updatedParticipants);
+  };
+
+  // 회의 정보 조회 (참석자 데이터 구조 확인 로깅 추가)
   useEffect(() => {
     const fetchData = async () => {
       try {
         const data = await getMeetingDetailWithParticipantEmails(meetingId);
 
-        console.log('회의 정보:', data);
+        // 참석자 데이터 구조 확인을 위한 로깅
+        console.log('전체 회의 데이터:', data);
+        console.log('참석자 데이터:', data.participants);
+        console.log('참석자 데이터 타입:', typeof data.participants);
+        console.log('참석자 배열 여부:', Array.isArray(data.participants));
+
+        // 각 참석자 객체 구조 확인
+        if (Array.isArray(data.participants) && data.participants.length > 0) {
+          console.log('첫 번째 참석자 구조:', data.participants[0]);
+          console.log('참석자 키들:', Object.keys(data.participants[0]));
+        }
 
         setMeetingTitle(data.title);
         setMeetingDate(formatKoreanDate(data.meetingAt));
@@ -163,6 +246,12 @@ export default function MeetingDetailPage() {
         setParticipantCount(data.participants.length);
         setMeetingMethod(data.meetingMethod);
         setParticipants(data.participants);
+
+        // 참석자 정보 유효성 검증
+        const participantsWithEmail = data.participants.filter((p: Participant) => p.email);
+        console.log('이메일이 있는 참석자 수:', participantsWithEmail.length);
+        console.log('이메일이 있는 참석자들:', participantsWithEmail);
+
         setAgendaItems(
           data.agendas.map((a: { agenda: string; body: string }, i: number) => ({
             id: i + 1,
@@ -180,7 +269,7 @@ export default function MeetingDetailPage() {
           content: h.content,
           timestamp: new Date(),
         }));
-        setChatMessages(
+        setChatMessages((prev) =>
           mapped.length
             ? mapped
             : [
@@ -200,24 +289,31 @@ export default function MeetingDetailPage() {
     fetchData();
   }, [meetingId]);
 
+  // 메시지가 바뀔 때마다 맨 아래로 스크롤
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
   }, [chatMessages]);
 
+  // 녹음 시간 업데이트
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     if (isRecording && !isPaused) {
       timer = setInterval(() => {
         setSeconds((prevSeconds) => prevSeconds + 1);
       }, 1000);
+    } else if (!isRecording && timer) {
+      clearInterval(timer);
     }
     return () => {
-      if (timer) clearInterval(timer);
+      if (timer) {
+        clearInterval(timer);
+      }
     };
   }, [isRecording, isPaused]);
 
+  // 초를 시간 형식으로 변환
   useEffect(() => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -229,6 +325,7 @@ export default function MeetingDetailPage() {
     );
   }, [seconds]);
 
+  // 실시간 녹음 시작 함수
   const handleStartRecording = async () => {
     try {
       const audioContext = new AudioContext();
@@ -349,11 +446,10 @@ export default function MeetingDetailPage() {
     }
   };
 
-  // [V2 기능 통합] GCS 업로드 로직으로 교체된 함수
   const uploadRecordingForTranscription = async (file: Blob | File, duration: number) => {
     try {
       const audioId = await uploadAudioToGCS(file, meetingId);
-      console.log('GCS 업로드 성공:', audioId);
+      console.log(' GCS 업로드 성공:', audioId);
 
       const token = localStorage.getItem('accessToken');
       const requestBody = {
@@ -387,7 +483,7 @@ export default function MeetingDetailPage() {
       throw error;
     }
   };
-
+  // 녹음 파일 다운로드 함수
   const handleDownloadRecording = () => {
     if (recordedBlob) {
       const url = URL.createObjectURL(recordedBlob);
@@ -409,6 +505,7 @@ export default function MeetingDetailPage() {
     }
   };
 
+  // 파일 업로드 처리 함수
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -416,6 +513,7 @@ export default function MeetingDetailPage() {
     }
   };
 
+  // 숨겨진 input을 클릭하는 함수
   const triggerFileUpload = () => {
     fileInputRef.current?.click();
   };
@@ -451,25 +549,22 @@ export default function MeetingDetailPage() {
     );
   };
 
-  const handleDeleteAgenda = (id: number) => {
-    setAgendaItems(agendaItems.filter((item) => item.id !== id));
-  };
-
   const handleUpdateMeeting = async () => {
     try {
+      // 화면 전용 participants → 서버 DTO로 변환
       const normalizedParticipants: MeetingParticipant[] = participants
-        .filter((p) => typeof p.userId === 'number')
+        .filter((p) => typeof p.userId === 'number') // 필수값 보장
         .map((p, idx) => ({
           userId: p.userId as number,
-          part: p.role ?? 'member',
-          speakerIndex: (p as any).speakerIndex ?? idx,
+          part: p.role ?? 'member', // 서버의 part로 매핑
+          speakerIndex: (p as any).speakerIndex ?? idx, // 없으면 인덱스로 대체
         }));
 
       const updateData: UpdateMeetingRequest = {
         teamId,
         title: meetingTitle,
-        meetingAt: meetingDateISO,
-        meetingMethod,
+        meetingAt: meetingDateISO, // ISO 형식 유지
+        meetingMethod, // 'REALTIME' | 'RECORD'
         note: meetingNotes,
         participants: normalizedParticipants,
         agendas: agendaItems.map((item) => ({
@@ -477,6 +572,9 @@ export default function MeetingDetailPage() {
           body: item.description,
         })),
       };
+
+      // 디버깅에 도움
+      // console.log('PUT /meetings payload', updateData);
 
       await updateMeetingDetail(meetingId, updateData);
     } catch (error: any) {
@@ -488,6 +586,7 @@ export default function MeetingDetailPage() {
     const text = newMessage.trim();
     if (!text || isAsking) return;
 
+    // 1) 사용자 메시지 즉시 반영
     const userMsg: ChatMessage = {
       id: chatMessages.length + 1,
       type: 'user',
@@ -499,8 +598,10 @@ export default function MeetingDetailPage() {
 
     try {
       setIsAsking(true);
+      // 2) 서버에 질문
       const { answer } = await askChatbot(meetingId, text);
 
+      // 3) AI 응답 반영
       const aiMsg: ChatMessage = {
         id: userMsg.id + 1,
         type: 'ai',
@@ -510,6 +611,7 @@ export default function MeetingDetailPage() {
       setChatMessages((prev) => [...prev, aiMsg]);
     } catch (e) {
       console.error(e);
+      // 실패 안내
       const errMsg: ChatMessage = {
         id: chatMessages.length + 2,
         type: 'ai',
@@ -524,41 +626,30 @@ export default function MeetingDetailPage() {
 
   const handleEndMeeting = async () => {
     try {
-      await handleUpdateMeeting();
-
-      if (meetingMethod === 'NONE') {
-        await updateMeetingStatus(Number(meetingId), 'FINISHED');
-        // 선택: 챗봇 세션 정리 (에러 무시)
-        await endChatbot(meetingId).catch(() => {});
-        // const query = new URLSearchParams({
-        //   title: encodeURIComponent(meetingTitle),
-        //   date: encodeURIComponent(meetingDate),
-        //   participants: String(participantCount),
-        //   participantsData: encodeURIComponent(JSON.stringify(participants)),
-        // }).toString();
-        // router.push(`/meeting/${meetingId}/result?${query}`);
-        router.push(`/team/records/${meetingId}`);
-        return;
-      }
-
+      // 전체 플로우 로딩 on
       setIsTranscribing(true);
 
+      // 0) 서버에 최신 회의 정보 저장
+      await handleUpdateMeeting();
+
+      // 1) 업로드할 오디오 파악 및 길이 계산
       const [h, m, s] = recordingTime.split(':').map(Number);
       const totalDurationInSeconds = (h || 0) * 3600 + (m || 0) * 60 + (s || 0);
       const file = meetingMethod === 'REALTIME' ? recordedBlob : uploadedFile;
 
       if (!file) {
         toast.error('오디오가 없습니다. 녹음을 종료했거나 파일을 업로드해야 합니다.');
-        setIsTranscribing(false); // 로딩 상태 해제
         return;
       }
 
+      // 2) STT 업로드 → STT 완료 대기
       setPostLabel('음성 분석 업로드 중...');
       await uploadRecordingForTranscription(file, totalDurationInSeconds);
 
       setPostLabel('음성 인식 결과 대기 중...');
-      await waitForStt(meetingId);
+      await waitForStt(meetingId); // getMeetingSttResult를 폴링하는 함수
 
+      // 3) 태스크 자동 추출(dryRun) → 초안(drafts) 저장
       setPostLabel('태스크 자동 추출 중...');
       const extractRes = await extractMeetingTasks(meetingId, {
         dryRun: true,
@@ -567,13 +658,30 @@ export default function MeetingDetailPage() {
         language: 'ko',
         defaultDueDays: 7,
       });
-
+      // 1) 원본 응답을 통째로 확인
       console.log('[extractRes raw]', JSON.stringify(extractRes, null, 2));
+
+      // 2) 필수 필드들이 유효한지 빠르게 테이블 체크
+      console.table(
+        (extractRes?.drafts ?? []).map((d) => ({
+          assigneeName: d.assigneeName,
+          title: d.title,
+          priority: d.priority,
+          due: d.due,
+          dueParseOk: !Number.isNaN(Date.parse(d.due ?? '')),
+        }))
+      );
+
+      // // 3) 멤버 매핑까지 미리 확인
+      // const members = await getTeamMembers(String(teamId));
+      // const nameToId = new Map(members.map((m) => [m.name.trim(), m.userId]));
 
       setPostLabel('태스크 저장 중...');
       if (extractRes?.drafts?.length) {
+        // 팀원 이름 → userId 매핑
         const members = await getTeamMembers(String(teamId));
         const nameToId = new Map(members.map((m) => [m.name, m.userId]));
+        // 임시 숫자: 오늘 + N일을 due로 사용
         const TEMP_DUE_DAYS = 7;
         const makeTempDueISO = () => {
           const d = new Date();
@@ -583,10 +691,12 @@ export default function MeetingDetailPage() {
         const toPriority = (p: any) =>
           p === 'HIGH' || p === 'LOW' || p === 'MEDIUM' ? p : 'MEDIUM';
 
+        // 초안 각각을 실태스크로 저장
         const results = await Promise.allSettled(
           extractRes.drafts.map((d) => {
             const assigneeId = nameToId.get(d.assigneeName);
             if (!assigneeId) {
+              // 담당자 매칭 실패 시 스킵(또는 기본 담당자 지정 로직으로 교체)
               console.warn('담당자 매칭 실패, 스킵:', d.assigneeName, d.title);
               return Promise.resolve();
             }
@@ -604,6 +714,8 @@ export default function MeetingDetailPage() {
             });
           })
         );
+
+        // 실패 로그(필요시)
         results.forEach((r, i) => {
           if (r.status === 'rejected') {
             console.error('태스크 생성 실패:', extractRes.drafts[i], r.reason);
@@ -611,19 +723,24 @@ export default function MeetingDetailPage() {
         });
       }
 
+      // 4) 요약 생성 시작 → 완료까지 대기
       setPostLabel('회의 요약 생성 시작...');
       await startMeetingSummary(meetingId);
 
       setPostLabel('회의 요약 생성 중...');
-      await waitForSummary(meetingId);
+      await waitForSummary(meetingId); // getMeetingSummaryStatus를 폴링하는 함수
 
+      // 5) 자료 추천
       setPostLabel('자료 추천 생성 중...');
       await createRecommendations(meetingId, 5);
 
+      // 6) 챗봇 세션 종료(TTL)
       await endChatbot(meetingId);
 
+      // 7) 회의 상태 변경
       await updateMeetingStatus(Number(meetingId), 'FINISHED');
 
+      // 8) 결과 페이지 이동
       const query = new URLSearchParams({
         title: encodeURIComponent(meetingTitle),
         date: encodeURIComponent(meetingDate),
@@ -636,16 +753,20 @@ export default function MeetingDetailPage() {
       console.error('회의 종료 후처리 실패:', err);
       toast.error(err?.message ?? '회의 종료 후처리 중 오류가 발생했습니다.');
     } finally {
+      // 로딩 off & 상태 문구 초기화
       setIsTranscribing(false);
       setPostLabel('');
     }
+  };
+
+  const handleDeleteAgenda = (id: number) => {
+    setAgendaItems(agendaItems.filter((item) => item.id !== id));
   };
 
   const getMeetingStatusText = () => {
     if (isTranscribing) {
       return postLabel || '처리 중...';
     }
-    if (meetingMethod === 'NONE') return '녹음 없이 회의 중';
     if (meetingMethod === 'REALTIME' && isRecording) return '회의 진행 중';
     if (meetingMethod === 'REALTIME' && isMeetingEnded) return '회의 녹음 종료';
     if (meetingMethod === 'RECORD' && uploadedFile) {
@@ -659,7 +780,7 @@ export default function MeetingDetailPage() {
     }
     return '회의 시작 전';
   };
-
+  // STT 결과가 준비될 때까지 폴링 (최대 2분, 2초 간격)
   const waitForStt = async (meetingId: number, timeoutMs = 120000, intervalMs = 2000) => {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
@@ -667,13 +788,14 @@ export default function MeetingDetailPage() {
         const stt = await getMeetingSttResult(meetingId);
         if (stt?.transcript && stt.transcript.trim().length > 0) return stt;
       } catch (_) {
-        // 무시하고 재시도
+        // 아직 준비 안 됨(404/empty 등) -> 무시하고 재시도
       }
       await new Promise((r) => setTimeout(r, intervalMs));
     }
     throw new Error('STT 결과 대기 시간 초과');
   };
 
+  // 요약 상태가 COMPLETED/FAILED가 될 때까지 폴링 (최대 3분, 2초 간격)
   const waitForSummary = async (meetingId: number, timeoutMs = 180000, intervalMs = 2000) => {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
@@ -689,10 +811,11 @@ export default function MeetingDetailPage() {
     <div className="h-full bg-gray-50 flex overflow-hidden">
       {/* Main Content - Left Side */}
       <div className="flex-1 flex flex-col relative">
-        {/* Fixed Header */}
+        {/* Fixed Header - 상단 고정 */}
         <div className="flex-shrink-0 p-6 bg-gray-50 border-b border-gray-200">
           <Card className="border border-gray-200">
             <CardContent className="p-6 relative">
+              {/* 회의 종료 버튼: 우상단 고정 */}
               <Button
                 onClick={handleEndMeeting}
                 className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2 absolute right-6 top-6"
@@ -705,6 +828,7 @@ export default function MeetingDetailPage() {
                 {isTranscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '회의 종료'}
               </Button>
 
+              {/* 좌측 정보 영역: 버튼 자리만큼 패딩 */}
               <div className="pr-28">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0">
@@ -719,6 +843,8 @@ export default function MeetingDetailPage() {
                         <span>{participantCount}명 참석</span>
                       </div>
                     </div>
+
+                    {/* 참석자 목록 (내용이 길어져도 버튼은 고정) */}
                     <details className="mt-3">
                       <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
                         참석자 목록 보기
@@ -734,11 +860,12 @@ export default function MeetingDetailPage() {
           </Card>
         </div>
 
-        {/* Scrollable Content */}
+        {/* Scrollable Content - 중간 스크롤 영역 */}
         <div
           className="flex-1 overflow-y-auto px-6 py-6"
           style={{ height: 'calc(100vh - 140px - 120px)' }}
         >
+          {/* Meeting Agenda */}
           <Card className="mb-6">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -755,6 +882,7 @@ export default function MeetingDetailPage() {
                   추가
                 </Button>
               </div>
+
               <div className="space-y-4">
                 {agendaItems.map((item) => (
                   <div key={item.id} className="space-y-2">
@@ -792,6 +920,8 @@ export default function MeetingDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Meeting Notes */}
           <Card className="mb-6">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -814,57 +944,60 @@ export default function MeetingDetailPage() {
           </Card>
         </div>
 
-        {meetingMethod !== 'NONE' && (
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pointer-events-none">
-            <div className="pointer-events-auto">
-              {meetingMethod === 'REALTIME' ? (
-                <Card className="bg-gray-400 text-white shadow-xl">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          {isRecording && (
-                            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                          )}
-                          <span className="font-mono text-lg">{recordingTime}</span>
-                          <span className="text-sm">{getMeetingStatusText()}</span>
-                        </div>
-                      </div>
+        {/* Fixed Recording Controls - 하단 오버레이 */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pointer-events-none">
+          <div className="pointer-events-auto">
+            {meetingMethod === 'REALTIME' ? (
+              <Card className="bg-gray-400 text-white shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        {!isRecording && !isMeetingEnded && (
+                        {isRecording && (
+                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        )}
+                        <span className="font-mono text-lg">{recordingTime}</span>
+                        <span className="text-sm">{getMeetingStatusText()}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* 회의 시작 전 상태: 시작 버튼 */}
+                      {!isRecording && !isMeetingEnded && (
+                        <Button
+                          onClick={handleStartRecording}
+                          size="sm"
+                          variant="ghost"
+                          className="text-white hover:bg-[#333333] p-2"
+                        >
+                          <Play className="w-5 h-5" />
+                        </Button>
+                      )}
+
+                      {/* 회의 진행 중 상태: 일시정지/재개, 정지 버튼 */}
+                      {isRecording && (
+                        <>
                           <Button
-                            onClick={handleStartRecording}
+                            onClick={handlePauseResumeRecording}
                             size="sm"
                             variant="ghost"
                             className="text-white hover:bg-[#333333] p-2"
                           >
-                            <Play className="w-5 h-5" />
+                            {isPaused ? (
+                              <Play className="w-5 h-5" />
+                            ) : (
+                              <Pause className="w-5 h-5" />
+                            )}
                           </Button>
-                        )}
-                        {isRecording && (
-                          <>
-                            <Button
-                              onClick={handlePauseResumeRecording}
-                              size="sm"
-                              variant="ghost"
-                              className="text-white hover:bg-[#333333] p-2"
-                            >
-                              {isPaused ? (
-                                <Play className="w-5 h-5" />
-                              ) : (
-                                <Pause className="w-5 h-5" />
-                              )}
-                            </Button>
-                            <Button
-                              onClick={handleStopRecording}
-                              size="sm"
-                              variant="ghost"
-                              className="text-white hover:bg-[#333333] p-2"
-                            >
-                              <Square className="w-5 h-5" />
-                            </Button>
-                            {/* 북마크 버튼 */}
-                            {/* <Button
+                          <Button
+                            onClick={handleStopRecording}
+                            size="sm"
+                            variant="ghost"
+                            className="text-white hover:bg-[#333333] p-2"
+                          >
+                            <Square className="w-5 h-5" />
+                          </Button>
+                          {/* 북마크 버튼 */}
+                          {/* <Button
                             // onClick={handleAddBookmark}
                             size="sm"
                             variant="ghost"
@@ -874,61 +1007,63 @@ export default function MeetingDetailPage() {
                           >
                             <Bookmark className="w-5 h-5" />
                           </Button> */}
-                          </>
-                        )}
-                        {isMeetingEnded && recordedBlob && (
-                          <Button
-                            onClick={handleDownloadRecording}
-                            size="sm"
-                            className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
-                          >
-                            <Download className="w-5 h-5" />
-                            다운로드
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="bg-gray-400 text-white shadow-xl">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          {uploadedFile && <div className="flex items-center"></div>}
-                          <span className="text-sm">{getMeetingStatusText()}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          onChange={handleFileUpload}
-                          accept="audio/*"
-                          className="hidden"
-                        />
+                        </>
+                      )}
+
+                      {/* 회의 녹음 종료 상태: 다운로드 버튼 */}
+                      {isMeetingEnded && recordedBlob && (
                         <Button
-                          onClick={triggerFileUpload}
+                          onClick={handleDownloadRecording}
                           size="sm"
                           className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
-                          disabled={isTranscribing}
                         >
-                          <Upload className="w-5 h-5" />
-                          파일 업로드
+                          <Download className="w-5 h-5" />
+                          다운로드
                         </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-gray-400 text-white shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        {uploadedFile && <div className="flex items-center"></div>}
+                        <span className="text-sm">{getMeetingStatusText()}</span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept="audio/*"
+                        className="hidden"
+                      />
+                      <Button
+                        onClick={triggerFileUpload}
+                        size="sm"
+                        className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
+                        disabled={isTranscribing}
+                      >
+                        <Upload className="w-5 h-5" />
+                        파일 업로드
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* AI Assistant Sidebar */}
+      {/* AI Assistant Sidebar - 오른쪽 독립 스크롤 */}
       <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
+        {/* Chat Header - 고정 */}
         <div className="flex-shrink-0 p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center">
@@ -937,6 +1072,8 @@ export default function MeetingDetailPage() {
             <h3 className="font-semibold text-[#333333]">AI 어시스턴트</h3>
           </div>
         </div>
+
+        {/* Chat Messages - 독립 스크롤 */}
         <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
           {chatMessages.map((message) => (
             <div
@@ -958,6 +1095,8 @@ export default function MeetingDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Chat Input */}
         <div className="flex-shrink-0 p-4 border-t border-gray-200">
           <div className="flex gap-2">
             <Input
