@@ -778,8 +778,33 @@ export default function MeetingDetailPage() {
         {/* Fixed Header - 상단 고정 */}
         <div className="flex-shrink-0 p-6 bg-gray-50 border-b border-gray-200">
           <Card className="border border-gray-200">
-            <CardContent className="p-6 relative">
+            <CardContent className="p-6 flex items-start justify-between gap-4">
               {/* 회의 종료 버튼: 우상단 고정 */}
+
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold text-[#333333] mb-2">{meetingTitle}</h1>
+                <div className="flex items-center gap-4 text-sm text-[#666666]">
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    <span>{meetingDate}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    <span>{participantCount}명 참석</span>
+                  </div>
+                </div>
+
+                {/* 참석자 목록 (내용이 길어져도 버튼은 고정) */}
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                    참석자 목록 보기
+                  </summary>
+                  <div className="mt-2 max-w-md max-h-48 overflow-y-auto">
+                    <ParticipantsList participants={participants} />
+                  </div>
+                </details>
+              </div>
+
               <Button
                 onClick={handleEndMeeting}
                 className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2 absolute right-6 top-6"
@@ -791,35 +816,6 @@ export default function MeetingDetailPage() {
               >
                 {isTranscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '회의 종료'}
               </Button>
-
-              {/* 좌측 정보 영역: 버튼 자리만큼 패딩 */}
-              <div className="pr-28">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0">
-                    <h1 className="text-2xl font-bold text-[#333333] mb-2">{meetingTitle}</h1>
-                    <div className="flex items-center gap-4 text-sm text-[#666666]">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        <span>{meetingDate}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        <span>{participantCount}명 참석</span>
-                      </div>
-                    </div>
-
-                    {/* 참석자 목록 (내용이 길어져도 버튼은 고정) */}
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
-                        참석자 목록 보기
-                      </summary>
-                      <div className="mt-2 max-w-md max-h-48 overflow-y-auto">
-                        <ParticipantsList participants={participants} />
-                      </div>
-                    </details>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
