@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   getMeetingDetail,
+  getMyMeetingList,
   updateMeetingDetail,
   askChatbot,
   getChatHistory,
@@ -152,8 +153,12 @@ const ParticipantsList = ({ participants }: { participants: Participant[] }) => 
 
 export default function MeetingDetailPage() {
   const params = useParams();
-  const meetingId = Number(params.id);
+  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const meetingId = Number(rawId); // ✅ 숫자로 정규화
   const router = useRouter();
+
+  const [guardChecked, setGuardChecked] = useState(false); // 가드 완료 플래그
+  const [blocked, setBlocked] = useState(false); // 차단 여부
 
   // 녹음 및 파일 관련 상태
   const [isRecording, setIsRecording] = useState(false);
@@ -186,6 +191,106 @@ export default function MeetingDetailPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const [postLabel, setPostLabel] = useState<string>('');
+
+  // ✅ FINISHED 여부 판정 (내 완료 회의 목록 기반)
+  const isFinished = async (id: number) => {
+    try {
+      const finished = await getMyMeetingList('finished');
+      return finished.some((m) => m.meetingId === id);
+    } catch (e) {
+      console.error('finished 목록 조회 실패:', e);
+      return false; // 실패 시 차단하지 않음
+    }
+  };
+
+  // ✅ 진입 가드 + 화면 데이터 로딩
+  useEffect(() => {
+    if (Number.isNaN(meetingId)) {
+      router.replace('/meeting/forbidden');
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        // 1) FINISHED면 바로 차단
+        const done = await isFinished(meetingId);
+        if (!mounted) return;
+        if (done) {
+          setBlocked(true);
+          router.replace('/meeting/forbidden');
+          return;
+        }
+
+        // 2) 표시용 상세 데이터 로딩
+        const data = await getMeetingDetailWithParticipantEmails(meetingId);
+        if (!mounted) return;
+
+        // 혹시 API가 status를 준다면 2차 방어
+        if ((data as any)?.status === 'FINISHED') {
+          setBlocked(true);
+          router.replace('/meeting/forbidden');
+          return;
+        }
+
+        setMeetingTitle(data.title);
+        setMeetingDate(formatKoreanDate(data.meetingAt));
+        setMeetingDateISO(data.meetingAt);
+        setParticipantCount(data.participants.length);
+        setMeetingMethod(data.meetingMethod);
+        setParticipants(data.participants);
+        setAgendaItems(
+          data.agendas.map((a, i) => ({ id: i + 1, title: a.agenda, description: a.body }))
+        );
+        setMeetingNotes(data.note);
+        setTeamId(data.teamId);
+
+        // 채팅 히스토리
+        const history = await getChatHistory(meetingId);
+        const mapped: ChatMessage[] = history.map((h, idx) => ({
+          id: idx + 1,
+          type: h.role === 'assistant' ? 'ai' : 'user',
+          content: h.content,
+          timestamp: new Date(),
+        }));
+        setChatMessages(
+          mapped.length
+            ? mapped
+            : [
+                { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
+                {
+                  id: 2,
+                  type: 'ai',
+                  content: '궁금한 점이 있으시다면 말씀해주세요',
+                  timestamp: new Date(),
+                },
+              ]
+        );
+      } catch (err) {
+        console.error('회의 정보/히스토리 불러오기 실패:', err);
+      } finally {
+        if (mounted) setGuardChecked(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [meetingId, router]);
+
+  // ✅ 화면 사용하는 동안에도 완료되면 즉시 차단
+  useEffect(() => {
+    let timer: any;
+    (async () => {
+      // 짧은 인터벌로 과도한 호출은 피함
+      timer = setInterval(async () => {
+        const done = await isFinished(meetingId);
+        if (done) {
+          setBlocked(true);
+          router.replace('/meeting/forbidden');
+        }
+      }, 5000);
+    })();
+    return () => clearInterval(timer);
+  }, [meetingId, router]);
 
   // 이메일 유효성 검증 함수
   const validateEmail = (email: string): boolean => {

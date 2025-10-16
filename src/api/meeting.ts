@@ -441,3 +441,4 @@ export const createRecommendations = async (meetingId: number, limit = 5): Promi
 export const deleteMeeting = async (meetingId: number): Promise<void> => {
   await axiosInstance.delete(`/api/v1/meetings/${meetingId}`);
 };
+
