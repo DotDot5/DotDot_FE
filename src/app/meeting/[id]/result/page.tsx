@@ -12,6 +12,7 @@ import TodoItem from '@/components/internal/TodoItem';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { formatKoreanDate } from '@/utils/fotmatDate';
 
 /* ===============================
  * Types
@@ -400,7 +401,7 @@ export default function MeetingPage() {
       <div className="w-2/3 overflow-y-auto p-6">
         <h1 className="text-xl font-bold mb-5">{meetingData.title}</h1>
         <div className="flex gap-4 text-sm text-gray-600 mb-4">
-          <span>{meetingData.date}</span>
+          <span>{formatKoreanDate(meetingData.date)}</span>
           <span>👥 {meetingData.participantCount}명 참석</span>
         </div>
 

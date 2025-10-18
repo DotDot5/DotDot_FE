@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getTeamDetail } from '@/api/team';
 import { Button } from '@/components/internal/ui/button';
@@ -8,14 +8,6 @@ import { Card, CardContent } from '@/components/internal/ui/card';
 import { Calendar, Clock, Users } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getPastMeetings } from '@/api/meeting';
-
-interface MeetingRecord {
-  id: number;
-  title: string;
-  date: string;
-  duration: string;
-  participants: number;
-}
 
 export default function MeetingRecordsPage() {
   const [currentPage, setCurrentPage] = useState(1);

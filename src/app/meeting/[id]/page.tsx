@@ -39,6 +39,7 @@ import {
 import type { MeetingParticipant, UpdateMeetingRequest } from '@/api/meeting';
 import { getTeamMembers } from '@/api/team';
 import { toast } from 'sonner';
+import { formatKoreanDate } from '@/utils/fotmatDate';
 
 interface AgendaItem {
   id: number;
@@ -506,22 +507,6 @@ export default function MeetingDetailPage() {
 
   const triggerFileUpload = () => {
     fileInputRef.current?.click();
-  };
-
-  const formatKoreanDate = (isoString: string): string => {
-    const date = new Date(isoString);
-    const day = date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      weekday: 'short',
-    });
-    const time = date.toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-    return `${day} ${time}`;
   };
 
   const handleAddAgenda = () => {
