@@ -394,7 +394,6 @@ export default function MeetingPage() {
     setShowEmailModal(true);
   };
 
-  /* ===== Render ===== */
   return (
     <div className="flex h-screen bg-background">
       {/* 왼쪽 스크롤 영역 */}
@@ -427,7 +426,12 @@ export default function MeetingPage() {
                     label={t.title}
                     assignee={t.assigneeName ?? '-'}
                     dueDate={t.due ? t.due.slice(0, 10) : '날짜 미지정'}
-                    important={['HIGH', 'MEDIUM', 'LOW'].includes(t.priority ?? '')}
+                    priority={t.priorityLabel}
+                    completed={t.statusLabel === '완료'}
+
+                    // onToggle={(completed) => { /* 상태 변경 */ }}
+                    // onEdit={() => { /* 수정 로직 */ }}
+                    // onDelete={() => { /* 삭제 확인 */ }}
                   />
                 ))}
             </div>
