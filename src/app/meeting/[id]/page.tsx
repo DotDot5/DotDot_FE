@@ -166,7 +166,6 @@ export default function MeetingDetailPage() {
     }
   };
 
-  // ✅ 진입 가드 + 화면 데이터 로딩
   useEffect(() => {
     if (Number.isNaN(meetingId)) {
       router.replace('/meeting/forbidden');
@@ -289,57 +288,6 @@ export default function MeetingDetailPage() {
     };
     setParticipants(updatedParticipants);
   };
-
-  // 회의 정보 조회 (참석자 데이터 구조 확인 로깅 추가)
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await getMeetingDetailWithParticipantEmails(meetingId);
-
-        console.log('회의 정보:', data);
-
-        setMeetingTitle(data.title);
-        setMeetingDate(formatKoreanDate(data.meetingAt));
-        setMeetingDateISO(data.meetingAt);
-        setParticipantCount(data.participants.length);
-        setMeetingMethod(data.meetingMethod);
-        setParticipants(data.participants);
-        setAgendaItems(
-          data.agendas.map((a: { agenda: string; body: string }, i: number) => ({
-            id: i + 1,
-            title: a.agenda,
-            description: a.body,
-          }))
-        );
-        setMeetingNotes(data.note);
-        setTeamId(data.teamId);
-
-        const history = await getChatHistory(meetingId);
-        const mapped: ChatMessage[] = history.map((h, idx) => ({
-          id: idx + 1,
-          type: h.role === 'assistant' ? 'ai' : 'user',
-          content: h.content,
-          timestamp: new Date(),
-        }));
-        setChatMessages((prev) =>
-          mapped.length
-            ? mapped
-            : [
-                { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
-                {
-                  id: 2,
-                  type: 'ai',
-                  content: '궁금한 점이 있으시다면 말씀해주세요',
-                  timestamp: new Date(),
-                },
-              ]
-        );
-      } catch (err) {
-        console.error('회의 정보/히스토리 불러오기 실패:', err);
-      }
-    };
-    fetchData();
-  }, [meetingId]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
