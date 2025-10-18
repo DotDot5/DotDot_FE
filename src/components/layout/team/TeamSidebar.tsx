@@ -1,6 +1,5 @@
 'use client';
-import { Home, Users } from 'lucide-react';
-
+import { Users, Plus } from 'lucide-react';
 import { useLayoutEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -8,11 +7,13 @@ import CreateTeamDialog from '@/components/layout/team/CreateTeamDialog';
 import RenameTeamDialog from '@/components/layout/team/RenameTeamDialog';
 import { Team } from '@/types/team';
 import { getMyTeams } from '@/api/team';
+import { useActiveTeam } from '@/context/activeTeamContext';
 
 const EXPANDED_KEY = 'teamSidebarExpanded';
 
 export default function TeamSidebar() {
   const pathname = usePathname();
+  const { activeTeamId } = useActiveTeam();
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -27,6 +28,11 @@ export default function TeamSidebar() {
     setEditingTeam(team);
     setOpenMenuId(null);
   };
+
+  const getActiveTeamIdFromUrl = useMemo(() => {
+    const match = pathname.match(/\/(?:team|calendar)\/(\d+)/);
+    return match ? Number(match[1]) : null;
+  }, [pathname]);
 
   const toggleTeam = (teamId: number) => {
     setExpanded((prev) => {
@@ -90,7 +96,11 @@ export default function TeamSidebar() {
   const activeClass = (href: string) =>
     pathname === href ? 'bg-gray-100 text-gray-900 rounded px-2' : 'text-[#666666] hover:underline';
 
-  // 팀 페이지/일정 경로
+  const getActiveTeamId = useMemo(() => {
+    const match = pathname.match(/\/(?:team|calendar)\/(\d+)/);
+    return match ? Number(match[1]) : null;
+  }, [pathname]);
+
   const paths = useMemo(
     () =>
       Object.fromEntries(
@@ -99,21 +109,37 @@ export default function TeamSidebar() {
     [teams]
   );
 
+  const isTeamSectionActive = pathname.startsWith('/team') || pathname.startsWith('/calendar');
+
   return (
     <div className="leading-7">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        {/* 팀 로고 생각하기 */}
-        {/* <div className="flex items-center gap-2 text-[#333333] font-semibold">👥 팀</div> */}
-        <div className="flex items-center gap-2 text-[#333333] font-semibold">
-          <Users size={18} className="text-gray-600" /> 팀
+      <div className="flex items-center justify-between mb-3">
+        <div
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 group w-full ${
+            isTeamSectionActive
+              ? 'bg-[#FFD93D] text-black shadow-sm'
+              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+          }`}
+        >
+          <Users
+            size={18}
+            className={`transition-transform duration-200 ${
+              isTeamSectionActive ? 'text-black' : 'text-gray-500 group-hover:text-gray-700'
+            }`}
+          />
+          팀
+          {isTeamSectionActive && (
+            <div className="ml-auto w-2 h-2 bg-black rounded-full animate-pulse"></div>
+          )}
         </div>
+
         <button
           onClick={handleAddClick}
-          className="text-[#FFD93D] rounded hover:bg-yellow-50 px-2 py-0.5"
+          className="ml-2 text-gray-700 hover:text-black hover:bg-yellow-100 transition-all duration-150 rounded-md p-1.5"
           aria-label="팀 추가"
         >
-          +
+          <Plus size={16} />
         </button>
       </div>
 
@@ -123,29 +149,38 @@ export default function TeamSidebar() {
           const isExpanded = expanded.has(team.id);
           const teamHref = paths[team.id]?.team ?? `/team/${team.id}`;
           const calendarHref = paths[team.id]?.calendar ?? `/calendar/${team.id}`;
+          const isActiveTeam = getActiveTeamIdFromUrl === team.id || activeTeamId === team.id;
 
           return (
             <div key={team.id} className="group relative" onMouseLeave={() => setOpenMenuId(null)}>
-              {/* 팀 행 */}
+              {/* 팀 이름 행 */}
               <div className="flex justify-between items-center pr-1 py-1.5">
-                <span className="text-md text-[#333333] font-medium select-none">{team.name}</span>
-
-                {/* 오른쪽: 더보기 ⋮ + 토글 화살표 > */}
+                <Link
+                  href={teamHref}
+                  className={`text-md select-none transition-colors duration-150 ${
+                    isActiveTeam ? 'text-[#FFD93D] font-bold' : 'text-[#333333] font-medium'
+                  }`}
+                >
+                  {team.name}
+                </Link>
                 <div className="flex items-center gap-1">
                   <button
                     className="text-xs text-[#666666] opacity-0 group-hover:opacity-100 px-1"
                     onClick={() => setOpenMenuId((prev) => (prev === team.id ? null : team.id))}
-                    aria-label="팀 메뉴"
                   >
                     ⋮
                   </button>
-
-                  {/* 얇은 chevron(>) 아이콘, 펼치면 아래로 회전 */}
                   <button
                     type="button"
-                    onClick={() => toggleTeam(team.id)}
+                    onClick={() => {
+                      setExpanded((prev) => {
+                        const next = new Set(prev);
+                        next.has(team.id) ? next.delete(team.id) : next.add(team.id);
+                        localStorage.setItem(EXPANDED_KEY, JSON.stringify(Array.from(next)));
+                        return next;
+                      });
+                    }}
                     className="p-1 rounded hover:bg-gray-50"
-                    aria-label={isExpanded ? '접기' : '펼치기'}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -153,7 +188,9 @@ export default function TeamSidebar() {
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2"
-                      className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                      className={`h-4 w-4 text-gray-400 transition-transform ${
+                        isExpanded ? 'rotate-90' : ''
+                      }`}
                     >
                       <path d="M9 18l6-6-6-6" />
                     </svg>

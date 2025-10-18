@@ -12,6 +12,7 @@ import TodoItem from '@/components/internal/TodoItem';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { formatKoreanDate } from '@/utils/fotmatDate';
 
 /* ===============================
  * Types
@@ -206,10 +207,12 @@ export default function MeetingPage() {
 
   const meetingDateYMD = detail?.meetingAt ? detail.meetingAt.slice(0, 10) : undefined;
   const {
-    items: taskItems = [],
-    summary: taskSummary,
+    data, // 훅에서 data 객체를 통째로 받습니다.
     isLoading: loadingTasks,
   } = useTasks(teamId, { meetingId, page: 0, size: 10, sort: 'status,asc' });
+
+  const taskItems = data?.items || [];
+  const taskSummary = data?.data?.summary;
 
   useEffect(() => {
     console.log('[dbg] summary=', summary);
@@ -219,10 +222,10 @@ export default function MeetingPage() {
   const participants = detail?.participants ?? [];
   const [checked, setChecked] = useState<boolean[]>([]);
   useEffect(() => {
-     if (detail && detail.meetingMethod === 'NONE' && meetingId) {
-       router.replace(`/team/records/${meetingId}`);
-     }
-   }, [detail, meetingId, router]);
+    if (detail && detail.meetingMethod === 'NONE' && meetingId) {
+      router.replace(`/team/records/${meetingId}`);
+    }
+  }, [detail, meetingId, router]);
 
   useEffect(() => {
     setChecked(new Array(participants.length).fill(false));
@@ -240,7 +243,6 @@ export default function MeetingPage() {
     }
     router.push(`/team/records/${meetingId}`);
   };
-  
 
   const meetingData = useMemo(
     () => ({
@@ -393,14 +395,13 @@ export default function MeetingPage() {
     setShowEmailModal(true);
   };
 
-  /* ===== Render ===== */
   return (
     <div className="flex h-screen bg-background">
       {/* 왼쪽 스크롤 영역 */}
       <div className="w-2/3 overflow-y-auto p-6">
         <h1 className="text-xl font-bold mb-5">{meetingData.title}</h1>
         <div className="flex gap-4 text-sm text-gray-600 mb-4">
-          <span>{meetingData.date}</span>
+          <span>{formatKoreanDate(meetingData.date)}</span>
           <span>👥 {meetingData.participantCount}명 참석</span>
         </div>
 
@@ -425,8 +426,13 @@ export default function MeetingPage() {
                     key={String(t.taskId ?? idx)}
                     label={t.title}
                     assignee={t.assigneeName ?? '-'}
-                    dueDate={t.due ? t.due.slice(0, 10) : undefined}
-                    important={['높음', '보통', '낮음'].includes(t.priorityLabel ?? '')}
+                    dueDate={t.due ? t.due.slice(0, 10) : '날짜 미지정'}
+                    priority={t.priorityLabel}
+                    completed={t.statusLabel === '완료'}
+
+                    // onToggle={(completed) => { /* 상태 변경 */ }}
+                    // onEdit={() => { /* 수정 로직 */ }}
+                    // onDelete={() => { /* 삭제 확인 */ }}
                   />
                 ))}
             </div>

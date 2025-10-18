@@ -19,12 +19,13 @@ import {
   PopoverClose,
 } from '@/components/internal/ui/popover';
 import { toast } from 'sonner';
-import ConfirmModal from '@/app/calendar/[id]/ConfirmModal';
 import EnhancedAudioPlayer, { AudioPlayerHandle } from '@/components/EnhancedAudioPlayer';
 import ScriptTranscript from '@/components/ScriptTranscript';
 import { useMeetingSummary, useMeetingRecommendations } from '@/hooks/useMeeting';
 import { useBookmark } from '@/hooks/useBookmark';
 import RecommandSection from '@/components/RecommandSection';
+import { useActiveTeam } from '@/context/activeTeamContext';
+import { formatKoreanDate } from '@/utils/fotmatDate';
 
 interface AgendaItem {
   agenda: string;
@@ -99,6 +100,16 @@ export default function MeetingDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editableAgendas, setEditableAgendas] = useState<AgendaItem[]>([]);
   const [editableNote, setEditableNote] = useState('');
+  const { setActiveTeamId } = useActiveTeam();
+
+  useEffect(() => {
+    if (meetingDetail?.teamId) {
+      setActiveTeamId(meetingDetail.teamId);
+    }
+    return () => {
+      setActiveTeamId(null);
+    };
+  }, [meetingDetail, setActiveTeamId]);
 
   // const { data: summary, isLoading: loadingSummary } = useMeetingSummary(meetingId);
   // const { data: recs, isLoading: loadingRecs } = useMeetingRecommendations(meetingId);
@@ -403,17 +414,6 @@ export default function MeetingDetailPage() {
     );
   }
 
-  const formatKoreanDate = (isoString: string): string => {
-    const date = new Date(isoString);
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${year}년 ${month}월 ${day}일 (${dayOfWeek}) ${hours}:${minutes}`;
-  };
-
   console.log('EnhancedAudioPlayer에 전달될 데이터 확인:', meetingDetail);
 
   return (
@@ -551,7 +551,7 @@ export default function MeetingDetailPage() {
                     {editableAgendas.map((ag, idx) => (
                       <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-white">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-3 h-3 border-2 border-[#666666] rounded-full"></div>
+                          <div className="w-2 h-2 border-2 border-[#666666] bg-[#666666] rounded-full"></div>
                           <input
                             type="text"
                             value={ag.agenda}
@@ -604,7 +604,6 @@ export default function MeetingDetailPage() {
                 )}{' '}
               </div>
             </section>
-            
             {/* STT 결과 표시 영역 (녹음 없음이면 숨김) */}{' '}
             {!isNone && (
               <section>

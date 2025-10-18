@@ -895,7 +895,7 @@ export default function MeetingCreateModal({
                   <div key={index}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center flex-1 min-w-0">
-                        <div className="w-3 h-3 border-2 border-[#666666] rounded-full mr-3"></div>
+                        <div className="w-2 h-2 border-2 border-[#666666] bg-[#666666] rounded-full mr-3"></div>
                         <input
                           type="text"
                           value={item.type}

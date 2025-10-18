@@ -126,3 +126,91 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* 스크롤바 스타일링 */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: #9ca3af;
+  }
+
+  /* 토스트 애니메이션 */
+  .toast-enter {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  .toast-enter-active {
+    transform: translateX(0);
+    opacity: 1;
+    transition:
+      transform 0.3s ease-out,
+      opacity 0.3s ease-out;
+  }
+
+  .toast-exit {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  .toast-exit-active {
+    transform: translateX(100%);
+    opacity: 0;
+    transition:
+      transform 0.3s ease-in,
+      opacity 0.3s ease-in;
+  }
+
+  /* 로딩 스피너 */
+  .spinner {
+    border: 2px solid #f3f4f6;
+    border-top: 2px solid #3b82f6;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* 호버 효과 */
+  .hover-lift {
+    transition:
+      transform 0.2s ease-in-out,
+      box-shadow 0.2s ease-in-out;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  /* 포커스 링 */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+  }
+}
