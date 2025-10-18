@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   getMeetingDetail,
+  getMyMeetingList,
   MeetingDetail,
   MeetingStatus,
   updateMeetingStatus,
@@ -25,10 +26,67 @@ export default function MeetingInfoPage() {
   const [meetingDetail, setMeetingDetail] = useState<MeetingDetail | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   // const [confirmDeleteModalOpen, setConfirmDeleteModalOpen] = useState(false); // 삭제 확인 모달 상태
+  const [guardChecked, setGuardChecked] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+
   const router = useRouter();
   const params = useParams();
-  const meetingId = params.id as string;
+  // const meetingId = params.id as string;
+  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const meetingId = Number(rawId);
+
   const [starting, setStarting] = useState(false);
+
+  // ✅ FINISHED 여부 판정 함수 (내 완료 회의 목록 기반)
+  const isFinished = async (id: number) => {
+    try {
+      const finished = await getMyMeetingList('finished');
+      return finished.some((m) => m.meetingId === id);
+    } catch (e) {
+      console.error('finished 목록 조회 실패:', e);
+      return false; // 실패 시 차단하지 않음(보수)
+    }
+  };
+
+  // ✅ 진입 가드 + 데이터 로딩
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const done = await isFinished(meetingId);
+        if (!mounted) return;
+
+        if (done) {
+          setBlocked(true);
+          router.replace('/meeting/forbidden');
+          return;
+        }
+
+        const md = await getMeetingDetail(meetingId); // /preview
+        if (!mounted) return;
+        setMeetingDetail(md);
+      } catch (err) {
+        console.error('회의 정보 조회 실패:', err);
+      } finally {
+        if (mounted) setGuardChecked(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [meetingId, router]);
+
+  // ✅ 이후에도 종료되면 즉시 차단 (변경 시 재확인)
+  useEffect(() => {
+    if (!meetingDetail) return;
+    (async () => {
+      const done = await isFinished(meetingId);
+      if (done) {
+        setBlocked(true);
+        router.replace('/meeting/forbidden');
+      }
+    })();
+  }, [meetingDetail, meetingId, router]);
 
   const handleStartMeeting = async () => {
     if (!meetingDetail) return;
@@ -52,18 +110,21 @@ export default function MeetingInfoPage() {
     }
   };
 
-  const fetchMeetingDetail = async () => {
+  // ✅ 모달 저장 후 새로고침: 먼저 FINISHED 재확인 → 아니면 /preview 다시 로드
+  const refreshDetail = async () => {
     try {
-      const data = await getMeetingDetail(Number(meetingId));
-      setMeetingDetail(data);
+      const done = await isFinished(meetingId);
+      if (done) {
+        router.replace('/meeting/forbidden');
+        return;
+      }
+      const md = await getMeetingDetail(meetingId);
+      setMeetingDetail(md);
     } catch (err) {
-      console.error('회의 정보 조회 실패:', err);
+      console.error('회의 정보 새로고침 실패:', err);
+      toast.error('회의 정보를 새로고침하지 못했어요.');
     }
   };
-
-  useEffect(() => {
-    fetchMeetingDetail();
-  }, [meetingId]);
 
   // 역할별 색깔 배정 함수
   const getRoleColor = (role: string) => {
@@ -101,7 +162,11 @@ export default function MeetingInfoPage() {
     }
   };
 
-  if (!meetingDetail) return <div className="p-8">회의 정보를 불러오는 중입니다...</div>;
+  // if (!meetingDetail) return <div className="p-8">회의 정보를 불러오는 중입니다...</div>;
+    if (!guardChecked || blocked) return null;
+    if (!meetingDetail) return <div className="p-8">회의 정보를 불러오는 중입니다...</div>;
+
+
 
   return (
     <div className="px-8 py-6">
@@ -153,9 +218,7 @@ export default function MeetingInfoPage() {
             onClose={() => setModalOpen(false)}
             mode="edit"
             teamId={meetingDetail.teamId.toString()}
-            onSuccess={() => {
-              fetchMeetingDetail(); // 수정 후 회의 정보 다시 불러오기
-            }}
+            onSuccess={refreshDetail}
             existingMeeting={{
               teamId: meetingDetail.teamId.toString(),
               title: meetingDetail.title,
