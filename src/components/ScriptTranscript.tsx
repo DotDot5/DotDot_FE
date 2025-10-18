@@ -87,8 +87,8 @@ export default function ScriptTranscript({
                 bookmarked
                   ? 'bg-yellow-50 border-yellow-200'
                   : isHighlighted
-                  ? 'bg-blue-50 border-blue-200 shadow-md'
-                  : 'bg-white border-gray-200 hover:border-gray-300'
+                    ? 'bg-blue-50 border-blue-200 shadow-md'
+                    : 'bg-white border-gray-200 hover:border-gray-300'
               }
               ${isClickable ? 'cursor-pointer hover:shadow-sm' : ''}
             `}
@@ -130,7 +130,7 @@ export default function ScriptTranscript({
                 ${getSpeakerColor(log.speakerIndex)}
               `}
               >
-                사용자 {log.speakerIndex}
+                사용자
               </div>
 
               {/* 시간 정보 */}
@@ -147,8 +147,8 @@ export default function ScriptTranscript({
                 bookmarked
                   ? 'text-gray-900 font-medium'
                   : isHighlighted
-                  ? 'text-gray-900 font-medium'
-                  : 'text-gray-800'
+                    ? 'text-gray-900 font-medium'
+                    : 'text-gray-800'
               }
             `}
             >

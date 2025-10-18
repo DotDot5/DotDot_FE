@@ -240,7 +240,9 @@ export default function TaskList({
               </h3>
               <p className="text-gray-600 text-sm">{task.description}</p>
               {task.assigneeName && <p className="text-gray-500 text-xs">{task.assigneeName}</p>}
-              {task.due && <p className="text-gray-500 text-xs mt-1">마감일: {task.due}</p>}
+              {task.due && (
+                <p className="text-gray-500 text-xs mt-1">마감일: {task.due.slice(0, 10)}</p>
+              )}
             </div>
             <div className="flex flex-col items-end space-y-1 min-w-[60px]">
               {task.priorityLabel === '높음' && (

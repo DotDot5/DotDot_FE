@@ -50,6 +50,16 @@ axiosInstance.interceptors.response.use(
     console.log('Status:', status);
     console.log('Error Code:', errorCode);
 
+    // [수정] TEAM-004 (접근 권한 없음) 에러 처리
+    if (status === 403 && errorCode === 'TEAM-004') {
+      // 권한 없음 페이지로 리디렉션
+      if (typeof window !== 'undefined') {
+        window.location.href = '/forbidden';
+      }
+      // 더 이상 다른 에러 처리를 진행하지 않도록 여기서 중단
+      return Promise.reject(error);
+    }
+
     if (
       status === 401 &&
       (errorCode === 'USER-003' || errorCode === 'USER-006') &&

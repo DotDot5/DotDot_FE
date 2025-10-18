@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   getMeetingDetail,
+  getMyMeetingList,
   updateMeetingDetail,
   askChatbot,
   getChatHistory,
@@ -38,6 +39,7 @@ import {
 import type { MeetingParticipant, UpdateMeetingRequest } from '@/api/meeting';
 import { getTeamMembers } from '@/api/team';
 import { toast } from 'sonner';
+import { formatKoreanDate } from '@/utils/fotmatDate';
 
 interface AgendaItem {
   id: number;
@@ -63,43 +65,6 @@ interface Participant {
   userId?: number;
 }
 
-// const [postLabel, setPostLabel] = useState<string>('');
-
-// 참석자 정보를 표시하는 컴포넌트
-// const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
-//   if (!participants || participants.length === 0) {
-//     return <div className="text-gray-500">참석자 정보가 없습니다.</div>;
-//   }
-
-//   return (
-//     <div className="space-y-2">
-//       {participants.map((participant, index) => (
-//         <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-//           <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-//             {participant.name
-//               ? participant.name.charAt(0).toUpperCase()
-//               : participant.email
-//                 ? participant.email.charAt(0).toUpperCase()
-//                 : '?'}
-//           </div>
-//           <div className="flex-1">
-//             <div className="font-medium text-sm text-gray-900">
-//               {participant.name || '이름 없음'}
-//             </div>
-//             <div className="text-xs text-gray-600">{participant.email || '이메일 없음'}</div>
-//           </div>
-//           {/* 참석자 역할이나 상태가 있다면 표시 */}
-//           {participant.role && (
-//             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-//               {participant.role}
-//             </span>
-//           )}
-//         </div>
-//       ))}
-//     </div>
-//   );
-// };
-
 const ParticipantsList = ({ participants }: { participants: Participant[] }) => {
   if (!participants || participants.length === 0) {
     return <div className="text-gray-500">참석자 정보가 없습니다.</div>;
@@ -112,8 +77,8 @@ const ParticipantsList = ({ participants }: { participants: Participant[] }) => 
         const initial = displayName
           ? displayName.charAt(0).toUpperCase()
           : p.email
-          ? p.email.charAt(0).toUpperCase()
-          : '?';
+            ? p.email.charAt(0).toUpperCase()
+            : '?';
         const avatarUrl =
           p.profileImageUrl && p.profileImageUrl !== 'basic' ? p.profileImageUrl : null;
 
@@ -152,8 +117,12 @@ const ParticipantsList = ({ participants }: { participants: Participant[] }) => 
 
 export default function MeetingDetailPage() {
   const params = useParams();
-  const meetingId = Number(params.id);
+  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const meetingId = Number(rawId); // ✅ 숫자로 정규화
   const router = useRouter();
+
+  const [guardChecked, setGuardChecked] = useState(false); // 가드 완료 플래그
+  const [blocked, setBlocked] = useState(false); // 차단 여부
 
   // 녹음 및 파일 관련 상태
   const [isRecording, setIsRecording] = useState(false);
@@ -186,6 +155,105 @@ export default function MeetingDetailPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const [postLabel, setPostLabel] = useState<string>('');
+
+  // ✅ FINISHED 여부 판정 (내 완료 회의 목록 기반)
+  const isFinished = async (id: number) => {
+    try {
+      const finished = await getMyMeetingList('finished');
+      return finished.some((m) => m.meetingId === id);
+    } catch (e) {
+      console.error('finished 목록 조회 실패:', e);
+      return false; // 실패 시 차단하지 않음
+    }
+  };
+
+  useEffect(() => {
+    if (Number.isNaN(meetingId)) {
+      router.replace('/meeting/forbidden');
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        // 1) FINISHED면 바로 차단
+        const done = await isFinished(meetingId);
+        if (!mounted) return;
+        if (done) {
+          setBlocked(true);
+          router.replace('/meeting/forbidden');
+          return;
+        }
+
+        // 2) 표시용 상세 데이터 로딩
+        const data = await getMeetingDetailWithParticipantEmails(meetingId);
+        if (!mounted) return;
+
+        // 혹시 API가 status를 준다면 2차 방어
+        if ((data as any)?.status === 'FINISHED') {
+          setBlocked(true);
+          router.replace('/meeting/forbidden');
+          return;
+        }
+
+        setMeetingTitle(data.title);
+        setMeetingDate(formatKoreanDate(data.meetingAt));
+        setMeetingDateISO(data.meetingAt);
+        setParticipantCount(data.participants.length);
+        setMeetingMethod(data.meetingMethod);
+        setParticipants(data.participants);
+        setAgendaItems(
+          data.agendas.map((a, i) => ({ id: i + 1, title: a.agenda, description: a.body }))
+        );
+        setMeetingNotes(data.note);
+        setTeamId(data.teamId);
+
+        // 채팅 히스토리
+        const history = await getChatHistory(meetingId);
+        const mapped: ChatMessage[] = history.map((h, idx) => ({
+          id: idx + 1,
+          type: h.role === 'assistant' ? 'ai' : 'user',
+          content: h.content,
+          timestamp: new Date(),
+        }));
+        setChatMessages(
+          mapped.length
+            ? mapped
+            : [
+                { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
+                {
+                  id: 2,
+                  type: 'ai',
+                  content: '궁금한 점이 있으시다면 말씀해주세요',
+                  timestamp: new Date(),
+                },
+              ]
+        );
+      } catch (err) {
+        console.error('회의 정보/히스토리 불러오기 실패:', err);
+      } finally {
+        if (mounted) setGuardChecked(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [meetingId, router]);
+
+  // ✅ 화면 사용하는 동안에도 완료되면 즉시 차단
+  useEffect(() => {
+    let timer: any;
+    (async () => {
+      // 짧은 인터벌로 과도한 호출은 피함
+      timer = setInterval(async () => {
+        const done = await isFinished(meetingId);
+        if (done) {
+          setBlocked(true);
+          router.replace('/meeting/forbidden');
+        }
+      }, 5000);
+    })();
+    return () => clearInterval(timer);
+  }, [meetingId, router]);
 
   // 이메일 유효성 검증 함수
   const validateEmail = (email: string): boolean => {
@@ -221,57 +289,6 @@ export default function MeetingDetailPage() {
     };
     setParticipants(updatedParticipants);
   };
-
-  // 회의 정보 조회 (참석자 데이터 구조 확인 로깅 추가)
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await getMeetingDetailWithParticipantEmails(meetingId);
-
-        console.log('회의 정보:', data);
-
-        setMeetingTitle(data.title);
-        setMeetingDate(formatKoreanDate(data.meetingAt));
-        setMeetingDateISO(data.meetingAt);
-        setParticipantCount(data.participants.length);
-        setMeetingMethod(data.meetingMethod);
-        setParticipants(data.participants);
-        setAgendaItems(
-          data.agendas.map((a: { agenda: string; body: string }, i: number) => ({
-            id: i + 1,
-            title: a.agenda,
-            description: a.body,
-          }))
-        );
-        setMeetingNotes(data.note);
-        setTeamId(data.teamId);
-
-        const history = await getChatHistory(meetingId);
-        const mapped: ChatMessage[] = history.map((h, idx) => ({
-          id: idx + 1,
-          type: h.role === 'assistant' ? 'ai' : 'user',
-          content: h.content,
-          timestamp: new Date(),
-        }));
-        setChatMessages((prev) =>
-          mapped.length
-            ? mapped
-            : [
-                { id: 1, type: 'ai', content: 'AI 어시스턴트', timestamp: new Date() },
-                {
-                  id: 2,
-                  type: 'ai',
-                  content: '궁금한 점이 있으시다면 말씀해주세요',
-                  timestamp: new Date(),
-                },
-              ]
-        );
-      } catch (err) {
-        console.error('회의 정보/히스토리 불러오기 실패:', err);
-      }
-    };
-    fetchData();
-  }, [meetingId]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -490,22 +507,6 @@ export default function MeetingDetailPage() {
 
   const triggerFileUpload = () => {
     fileInputRef.current?.click();
-  };
-
-  const formatKoreanDate = (isoString: string): string => {
-    const date = new Date(isoString);
-    const day = date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      weekday: 'short',
-    });
-    const time = date.toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-    return `${day} ${time}`;
   };
 
   const handleAddAgenda = () => {
@@ -781,7 +782,33 @@ export default function MeetingDetailPage() {
         {/* Fixed Header */}
         <div className="flex-shrink-0 p-6 bg-gray-50 border-b border-gray-200">
           <Card className="border border-gray-200">
-            <CardContent className="p-6 relative">
+            <CardContent className="p-6 flex items-start justify-between gap-4">
+              {/* 회의 종료 버튼: 우상단 고정 */}
+
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold text-[#333333] mb-2">{meetingTitle}</h1>
+                <div className="flex items-center gap-4 text-sm text-[#666666]">
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    <span>{meetingDate}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    <span>{participantCount}명 참석</span>
+                  </div>
+                </div>
+
+                {/* 참석자 목록 (내용이 길어져도 버튼은 고정) */}
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                    참석자 목록 보기
+                  </summary>
+                  <div className="mt-2 max-w-md max-h-48 overflow-y-auto">
+                    <ParticipantsList participants={participants} />
+                  </div>
+                </details>
+              </div>
+
               <Button
                 onClick={handleEndMeeting}
                 className="bg-gray-400 hover:bg-[#666666] text-white px-6 py-2 absolute right-6 top-6"
@@ -793,32 +820,6 @@ export default function MeetingDetailPage() {
               >
                 {isTranscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '회의 종료'}
               </Button>
-
-              <div className="pr-28">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0">
-                    <h1 className="text-2xl font-bold text-[#333333] mb-2">{meetingTitle}</h1>
-                    <div className="flex items-center gap-4 text-sm text-[#666666]">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        <span>{meetingDate}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        <span>{participantCount}명 참석</span>
-                      </div>
-                    </div>
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
-                        참석자 목록 보기
-                      </summary>
-                      <div className="mt-2 max-w-md max-h-48 overflow-y-auto">
-                        <ParticipantsList participants={participants} />
-                      </div>
-                    </details>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -848,7 +849,7 @@ export default function MeetingDetailPage() {
                 {agendaItems.map((item) => (
                   <div key={item.id} className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 border-2 border-[#666666] rounded-full"></div>
+                      <div className="w-2 h-2 border-2 border-[#666666] bg-[#666666] rounded-full mr-2"></div>
                       <input
                         type="text"
                         value={item.title}
@@ -903,12 +904,13 @@ export default function MeetingDetailPage() {
           </Card>
         </div>
 
+        {/* Fixed Recording Controls - 하단 오버레이 */}
         {meetingMethod !== 'NONE' && (
           <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pointer-events-none">
             <div className="pointer-events-auto">
               {meetingMethod === 'REALTIME' ? (
-                <Card className="bg-gray-400 text-white shadow-xl">
-                  <CardContent className="p-4">
+                <div className="bg-gray-400 text-white shadow-xl rounded-lg">
+                  <div className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
@@ -965,6 +967,8 @@ export default function MeetingDetailPage() {
                           </Button> */}
                           </>
                         )}
+
+                        {/* 회의 녹음 종료 상태: 다운로드 버튼 */}
                         {isMeetingEnded && recordedBlob && (
                           <Button
                             onClick={handleDownloadRecording}
@@ -977,11 +981,11 @@ export default function MeetingDetailPage() {
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ) : (
-                <Card className="bg-gray-400 text-white shadow-xl">
-                  <CardContent className="p-4">
+                <div className="bg-gray-400 text-white shadow-xl rounded-lg">
+                  <div className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
@@ -989,27 +993,9 @@ export default function MeetingDetailPage() {
                           <span className="text-sm">{getMeetingStatusText()}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          onChange={handleFileUpload}
-                          accept="audio/*"
-                          className="hidden"
-                        />
-                        <Button
-                          onClick={triggerFileUpload}
-                          size="sm"
-                          className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
-                          disabled={isTranscribing}
-                        >
-                          <Upload className="w-5 h-5" />
-                          파일 업로드
-                        </Button>
-                      </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               )}
             </div>
           </div>
