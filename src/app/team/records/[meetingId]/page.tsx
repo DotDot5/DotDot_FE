@@ -25,6 +25,7 @@ import ScriptTranscript from '@/components/ScriptTranscript';
 import { useMeetingSummary, useMeetingRecommendations } from '@/hooks/useMeeting';
 import { useBookmark } from '@/hooks/useBookmark';
 import RecommandSection from '@/components/RecommandSection';
+import { useActiveTeam } from '@/context/activeTeamContext';
 
 interface AgendaItem {
   agenda: string;
@@ -99,6 +100,16 @@ export default function MeetingDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editableAgendas, setEditableAgendas] = useState<AgendaItem[]>([]);
   const [editableNote, setEditableNote] = useState('');
+  const { setActiveTeamId } = useActiveTeam();
+
+  useEffect(() => {
+    if (meetingDetail?.teamId) {
+      setActiveTeamId(meetingDetail.teamId);
+    }
+    return () => {
+      setActiveTeamId(null);
+    };
+  }, [meetingDetail, setActiveTeamId]);
 
   // const { data: summary, isLoading: loadingSummary } = useMeetingSummary(meetingId);
   // const { data: recs, isLoading: loadingRecs } = useMeetingRecommendations(meetingId);

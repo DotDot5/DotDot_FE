@@ -7,11 +7,13 @@ import CreateTeamDialog from '@/components/layout/team/CreateTeamDialog';
 import RenameTeamDialog from '@/components/layout/team/RenameTeamDialog';
 import { Team } from '@/types/team';
 import { getMyTeams } from '@/api/team';
+import { useActiveTeam } from '@/context/activeTeamContext';
 
 const EXPANDED_KEY = 'teamSidebarExpanded';
 
 export default function TeamSidebar() {
   const pathname = usePathname();
+  const { activeTeamId } = useActiveTeam();
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -26,6 +28,11 @@ export default function TeamSidebar() {
     setEditingTeam(team);
     setOpenMenuId(null);
   };
+
+  const getActiveTeamIdFromUrl = useMemo(() => {
+    const match = pathname.match(/\/(?:team|calendar)\/(\d+)/);
+    return match ? Number(match[1]) : null;
+  }, [pathname]);
 
   const toggleTeam = (teamId: number) => {
     setExpanded((prev) => {
@@ -142,20 +149,20 @@ export default function TeamSidebar() {
           const isExpanded = expanded.has(team.id);
           const teamHref = paths[team.id]?.team ?? `/team/${team.id}`;
           const calendarHref = paths[team.id]?.calendar ?? `/calendar/${team.id}`;
-          const isActiveTeam = getActiveTeamId === team.id;
+          const isActiveTeam = getActiveTeamIdFromUrl === team.id || activeTeamId === team.id;
 
           return (
             <div key={team.id} className="group relative" onMouseLeave={() => setOpenMenuId(null)}>
               {/* 팀 이름 행 */}
               <div className="flex justify-between items-center pr-1 py-1.5">
-                <span
-                  className={`text-md font-medium select-none transition-colors duration-150 ${
-                    isActiveTeam ? 'text-[#FFD93D]' : 'text-[#333333]'
+                <Link
+                  href={teamHref}
+                  className={`text-md select-none transition-colors duration-150 ${
+                    isActiveTeam ? 'text-[#FFD93D] font-bold' : 'text-[#333333] font-medium'
                   }`}
                 >
                   {team.name}
-                </span>
-
+                </Link>
                 <div className="flex items-center gap-1">
                   <button
                     className="text-xs text-[#666666] opacity-0 group-hover:opacity-100 px-1"

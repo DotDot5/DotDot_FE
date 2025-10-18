@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from 'sonner';
 import { Providers } from './providers';
 import Script from 'next/script';
+import { ActiveTeamProvider } from '@/context/activeTeamContext';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -47,10 +48,12 @@ export default function RootLayout({
             style={{ display: 'none', visibility: 'hidden' }}
           ></iframe>
         </noscript>
-        <Providers>
-          {children}
-          <Toaster richColors />
-        </Providers>
+        <ActiveTeamProvider>
+          <Providers>
+            {children}
+            <Toaster richColors />
+          </Providers>
+        </ActiveTeamProvider>
       </body>
     </html>
   );
