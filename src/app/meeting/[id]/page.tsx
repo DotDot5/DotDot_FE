@@ -77,8 +77,8 @@ const ParticipantsList = ({ participants }: { participants: Participant[] }) => 
         const initial = displayName
           ? displayName.charAt(0).toUpperCase()
           : p.email
-            ? p.email.charAt(0).toUpperCase()
-            : '?';
+          ? p.email.charAt(0).toUpperCase()
+          : '?';
         const avatarUrl =
           p.profileImageUrl && p.profileImageUrl !== 'basic' ? p.profileImageUrl : null;
 
@@ -206,8 +206,7 @@ export default function MeetingDetailPage() {
         );
         setMeetingNotes(data.note);
         setTeamId(data.teamId);
-
-        // 채팅 히스토리
+        //채팅 히스토리
         const history = await getChatHistory(meetingId);
         const mapped: ChatMessage[] = history.map((h, idx) => ({
           id: idx + 1,
@@ -262,24 +261,21 @@ export default function MeetingDetailPage() {
   };
 
   // 참석자 정보 검증 및 경고 표시
+  /*
   const getParticipantValidationWarnings = () => {
     const warnings = [];
-
     participants.forEach((participant, index) => {
       if (!participant.email) {
         warnings.push(`참석자 ${index + 1}: 이메일이 없습니다.`);
       } else if (!validateEmail(participant.email)) {
         warnings.push(`참석자 ${index + 1}: 유효하지 않은 이메일 형식입니다.`);
       }
-
       if (!participant.name) {
         warnings.push(`참석자 ${index + 1}: 이름이 없습니다.`);
       }
     });
-
     return warnings;
   };
-
   // 참석자 정보 수정 기능
   const handleUpdateParticipant = (index: number, field: keyof Participant, value: string) => {
     const updatedParticipants = [...participants];
@@ -289,6 +285,7 @@ export default function MeetingDetailPage() {
     };
     setParticipants(updatedParticipants);
   };
+  */
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -395,8 +392,27 @@ export default function MeetingDetailPage() {
   const uploadAudioToGCS = async (audioBlob: Blob, meetingId: number): Promise<string> => {
     try {
       const mimeType = audioBlob.type || 'audio/webm';
-      const cleanMimeType = mimeType.split(';')[0];
-      const extension = cleanMimeType.split('/')[1] || 'webm';
+      const cleanMimeType = mimeType.split(';')[0].toLowerCase();
+
+      let extension: string;
+
+      if (cleanMimeType.includes('audio/mp4') || cleanMimeType.includes('audio/x-m4a')) {
+        extension = 'm4a';
+      } else if (cleanMimeType.includes('video/mp4') || cleanMimeType.includes('video/quicktime')) {
+        extension = 'mp4';
+      } else if (cleanMimeType.includes('audio/mpeg')) {
+        extension = 'mp3';
+      } else if (cleanMimeType.includes('audio/wav') || cleanMimeType.includes('audio/wave')) {
+        extension = 'wav';
+      } else if (cleanMimeType.includes('audio/webm')) {
+        extension = 'webm';
+      } else {
+        extension = cleanMimeType.split('/')[1] || 'bin';
+      }
+
+      extension = extension.replace(/[^a-z0-9]/g, '');
+      if (!extension) extension = 'bin';
+
       const token = localStorage.getItem('accessToken');
 
       const response = await fetch('/api/audio', {
@@ -407,7 +423,7 @@ export default function MeetingDetailPage() {
         },
         body: JSON.stringify({
           meetingId,
-          fileName: `audio_${Date.now()}.${extension}`,
+          fileName: `audio_${meetingId}_${Date.now()}.${extension}`,
           contentType: mimeType,
         }),
       });
@@ -435,44 +451,6 @@ export default function MeetingDetailPage() {
       return audioId;
     } catch (error) {
       console.error('Audio upload to GCS failed:', error);
-      throw error;
-    }
-  };
-
-  const uploadRecordingForTranscription = async (file: Blob | File, duration: number) => {
-    try {
-      const audioId = await uploadAudioToGCS(file, meetingId);
-      console.log('GCS 업로드 성공:', audioId);
-
-      const token = localStorage.getItem('accessToken');
-      const requestBody = {
-        audioId,
-        meetingId,
-        duration,
-      };
-
-      console.log('📤 STT API 요청:', requestBody);
-
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log('📥 STT API 응답 상태:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ STT API 에러 상세:', errorData);
-        throw new Error(errorData.error || 'Transcription failed');
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('음성 분석 업로드 실패:', error);
       throw error;
     }
   };
@@ -597,35 +575,160 @@ export default function MeetingDetailPage() {
 
       if (meetingMethod === 'NONE') {
         await updateMeetingStatus(Number(meetingId), 'FINISHED');
-        // 선택: 챗봇 세션 정리 (에러 무시)
         await endChatbot(meetingId).catch(() => {});
-        // const query = new URLSearchParams({
-        //   title: encodeURIComponent(meetingTitle),
-        //   date: encodeURIComponent(meetingDate),
-        //   participants: String(participantCount),
-        //   participantsData: encodeURIComponent(JSON.stringify(participants)),
-        // }).toString();
-        // router.push(`/meeting/${meetingId}/result?${query}`);
         router.push(`/team/records/${meetingId}`);
         return;
       }
 
       setIsTranscribing(true);
+      setPostLabel('오디오 업로드 중...');
 
       const [h, m, s] = recordingTime.split(':').map(Number);
-      const totalDurationInSeconds = (h || 0) * 3600 + (m || 0) * 60 + (s || 0);
+      const recordingTimeDuration = (h || 0) * 3600 + (m || 0) * 60 + (s || 0);
       const file = meetingMethod === 'REALTIME' ? recordedBlob : uploadedFile;
 
       if (!file) {
         toast.error('오디오가 없습니다. 녹음을 종료했거나 파일을 업로드해야 합니다.');
+        setIsTranscribing(false);
         return;
       }
 
-      setPostLabel('음성 분석 업로드 중...');
-      await uploadRecordingForTranscription(file, totalDurationInSeconds);
+      const audioId = await uploadAudioToGCS(file, meetingId);
+      setPostLabel(`음성 분석 중...`);
 
-      setPostLabel('음성 인식 결과 대기 중...');
-      await waitForStt(meetingId);
+      const splitResponse = await fetch('/api/split-audio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gcsUri: audioId,
+          meetingId,
+          duration: recordingTimeDuration,
+        }),
+      });
+
+      if (!splitResponse.ok) {
+        throw new Error('오디오 분할 실패');
+      }
+
+      const splitResult = await splitResponse.json();
+      const chunks = splitResult.chunks;
+
+      const actualDuration = splitResult.totalDuration || recordingTimeDuration;
+
+      console.log(`📦 ${chunks.length}개 청크 생성 완료`);
+
+      const token = localStorage.getItem('accessToken');
+      const results = [];
+
+      const CONCURRENT_LIMIT = 5; // 동시 처리 개수
+
+      for (let i = 0; i < chunks.length; i += CONCURRENT_LIMIT) {
+        const batch = chunks.slice(i, i + CONCURRENT_LIMIT);
+        const batchResults = await Promise.allSettled(
+          batch.map(async (chunk) => {
+            try {
+              const response = await fetch('/api/transcribe', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  audioId: chunk.gcsUri,
+                  meetingId,
+                  duration: chunk.duration,
+                  initialRecordingOffsetSeconds: chunk.startTime,
+                  meetingMethod: 'CHUNK',
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+
+              return await response.json();
+            } catch (error) {
+              console.error(`❌ 청크 ${chunk.chunkIndex} 실패:`, error);
+              throw error;
+            }
+          })
+        );
+
+        // 결과 수집
+        batchResults.forEach((result, idx) => {
+          const chunk = batch[idx];
+
+          if (result.status === 'fulfilled') {
+            console.log(` 청크 ${chunk.chunkIndex + 1} 완료`);
+            const transcript = result.value.transcript || '';
+            if (!transcript) {
+              console.warn(` 청크 ${chunk.chunkIndex + 1}: STT 결과 텍스트가 비어있음`);
+            } else {
+              // 텍스트가 있다면 로그에 출력
+              console.log(
+                ` 청크 ${chunk.chunkIndex + 1} STT 결과: "${transcript.substring(0, 50)}..."`
+              );
+            }
+            results.push({
+              chunkIndex: chunk.chunkIndex,
+              transcript: result.value.transcript || '',
+              speechLogs: result.value.speechLogs || [],
+            });
+          } else {
+            console.error(`❌ 청크 ${chunk.chunkIndex + 1} 실패:`, result.reason);
+            // 실패해도 빈 결과로 추가 (전체 프로세스 중단 방지)
+            results.push({
+              chunkIndex: chunk.chunkIndex,
+              transcript: '',
+              speechLogs: [],
+            });
+          }
+        });
+      }
+      setPostLabel('STT 결과 병합 중...');
+      const fullTranscript = results
+        .sort((a, b) => a.chunkIndex - b.chunkIndex)
+        .map((r) => r.transcript)
+        .filter((t) => t.length > 0)
+        .join('\n');
+
+      const allSpeechLogs = results
+        .flatMap((r) => r.speechLogs)
+        .sort((a, b) => a.startTime - b.startTime);
+
+      // 5단계: 백엔드에 저장
+      setPostLabel('STT 결과 저장 중...');
+
+      const sttSaveResponse = await fetch(
+        `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            duration: actualDuration,
+            transcript: fullTranscript,
+            audio_id: audioId,
+            speechLogs: allSpeechLogs,
+          }),
+        }
+      );
+      console.log('✅ 전체 STT 처리 완료!');
+
+      console.log('================================');
+      console.log(fullTranscript);
+      console.log('================================');
+
+      if (!sttSaveResponse.ok) {
+        const errorDetail = await sttSaveResponse.text();
+        throw new Error(`STT 결과 저장 실패: ${sttSaveResponse.status} - ${errorDetail}`);
+      } else {
+        console.log('✅ STT 결과 저장 완료');
+      }
 
       setPostLabel('태스크 자동 추출 중...');
       const extractRes = await extractMeetingTasks(meetingId, {
@@ -748,20 +851,6 @@ export default function MeetingDetailPage() {
       );
     }
     return '회의 시작 전';
-  };
-
-  const waitForStt = async (meetingId: number, timeoutMs = 120000, intervalMs = 2000) => {
-    const started = Date.now();
-    while (Date.now() - started < timeoutMs) {
-      try {
-        const stt = await getMeetingSttResult(meetingId);
-        if (stt?.transcript && stt.transcript.trim().length > 0) return stt;
-      } catch (_) {
-        // 무시하고 재시도
-      }
-      await new Promise((r) => setTimeout(r, intervalMs));
-    }
-    throw new Error('STT 결과 대기 시간 초과');
   };
 
   const waitForSummary = async (meetingId: number, timeoutMs = 180000, intervalMs = 2000) => {
@@ -992,6 +1081,25 @@ export default function MeetingDetailPage() {
                           {uploadedFile && <div className="flex items-center"></div>}
                           <span className="text-sm">{getMeetingStatusText()}</span>
                         </div>
+                      </div>
+                      {/* ⭐⭐⭐ 업로드 버튼 추가 */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleFileUpload}
+                          accept="audio/*"
+                          className="hidden"
+                        />
+                        <Button
+                          onClick={triggerFileUpload}
+                          size="sm"
+                          className="bg-[#3B82F6] hover:bg-green-600 text-white p-2 flex items-center gap-1"
+                          disabled={isTranscribing}
+                        >
+                          <Upload className="w-5 h-5" />
+                          파일 업로드
+                        </Button>
                       </div>
                     </div>
                   </div>

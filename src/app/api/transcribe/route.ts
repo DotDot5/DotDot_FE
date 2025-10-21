@@ -1,24 +1,21 @@
-import { headers } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { SpeechClient } from '@google-cloud/speech';
 import { Storage } from '@google-cloud/storage';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
+
 const backendBaseUrl = process.env.BACKEND_API_URL || 'http://localhost:8080';
 
+// ⭐ 유틸리티 함수들
 function formatSecondsToMinutesSeconds(totalSeconds: number): string {
-  if (totalSeconds < 0) {
-    totalSeconds = 0;
-  }
+  if (totalSeconds < 0) totalSeconds = 0;
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = Math.floor(totalSeconds % 60);
-
-  const formattedHours = String(hours).padStart(2, '0');
-  const formattedMinutes = String(minutes).padStart(2, '0');
-  const formattedSeconds = String(seconds).padStart(2, '0');
-
-  return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(
+    seconds
+  ).padStart(2, '0')}`;
 }
 
 function getGoogleCredentials() {
@@ -47,17 +44,8 @@ function getGoogleCredentials() {
   throw new Error('Google Cloud credentials not configured');
 }
 
-function hmsToSeconds(hms: string): number {
-  const [hours, minutes, seconds] = hms.split(':').map(Number);
-  if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) {
-    return 0;
-  }
-  return hours * 3600 + minutes * 60 + seconds;
-}
-
 function getEncodingFromUri(gcsUri: string): string {
   const extension = gcsUri.split('.').pop()?.toLowerCase() || 'webm';
-
   const encodingMap: { [key: string]: string } = {
     webm: 'WEBM_OPUS',
     opus: 'WEBM_OPUS',
@@ -69,32 +57,154 @@ function getEncodingFromUri(gcsUri: string): string {
     flac: 'FLAC',
     ogg: 'OGG_OPUS',
   };
-
   return encodingMap[extension] || 'WEBM_OPUS';
 }
 
+interface Segment {
+  speaker: number;
+  text: string;
+  startTime: string;
+  endTime: string;
+  startTimeInSeconds: number;
+  endTimeInSeconds: number;
+}
+
+// ⭐⭐ 핵심: 단일 청크 STT 처리
+async function processChunkSTT(
+  speechClient: SpeechClient,
+  gcsUri: string,
+  offsetSeconds: number = 0
+): Promise<{ segments: Segment[]; transcript: string }> {
+  console.log(`🎤 STT 시작: ${gcsUri} (offset: ${offsetSeconds}s)`);
+
+  const encoding = getEncodingFromUri(gcsUri);
+  const audio = { uri: gcsUri };
+
+  const config = {
+    encoding: encoding as any,
+    sampleRateHertz: 48000,
+    languageCode: 'ko-KR',
+    model: 'latest_long',
+    enableAutomaticPunctuation: true,
+    enableWordTimeOffsets: true,
+    audioChannelCount: 2,
+    enableSeparateRecognitionPerChannel: false,
+    useEnhanced: true,
+    metadata: {
+      interactionType: 'DISCUSSION',
+      microphoneDistance: 'NEARFIELD',
+      recordingDeviceType: 'PC',
+    },
+  };
+
+  console.log('🚀 Starting Google STT...');
+  const [operation] = await speechClient.longRunningRecognize({ config, audio });
+
+  console.log('⏳ Waiting for STT completion...');
+  const [response] = await operation.promise();
+
+  console.log('✅ STT completed, processing segments...'); // ⭐ 세그먼트 추출
+
+  const segments: Segment[] = [];
+  let currentSpeaker: number | null = null;
+  let currentSegmentText = '';
+  let currentSegmentStartTime: number | null = null;
+  let lastWordEndTime: number = 0;
+
+  response.results?.forEach((result) => {
+    result.alternatives?.[0]?.words?.forEach((wordInfo) => {
+      const speakerTag = wordInfo.speakerTag ?? 1;
+      const word = wordInfo.word; // 시간 계산
+
+      const startSeconds = parseInt((wordInfo.startTime?.seconds as string) || '0', 10);
+      const startNanos = wordInfo.startTime?.nanos || 0;
+      let startTimeInSeconds = startSeconds + startNanos / 1_000_000_000;
+
+      const endSeconds = parseInt((wordInfo.endTime?.seconds as string) || '0', 10);
+      const endNanos = wordInfo.endTime?.nanos || 0;
+      let endTimeInSeconds = endSeconds + endNanos / 1_000_000_000; // ⭐ offset 적용 (청크의 시작 시간 더하기)
+
+      startTimeInSeconds += offsetSeconds;
+      endTimeInSeconds += offsetSeconds; // 침묵 구간 계산 (5초 이상이면 새 세그먼트)
+
+      const silenceDuration = lastWordEndTime > 0 ? startTimeInSeconds - lastWordEndTime : 0; // 화자 변경 또는 긴 침묵 → 새 세그먼트
+
+      if (currentSpeaker === null || speakerTag !== currentSpeaker || silenceDuration >= 5) {
+        if (
+          currentSegmentText !== '' &&
+          currentSpeaker !== null &&
+          currentSegmentStartTime !== null
+        ) {
+          segments.push({
+            speaker: currentSpeaker,
+            text: currentSegmentText.trim(),
+            startTime: formatSecondsToMinutesSeconds(currentSegmentStartTime),
+            endTime: formatSecondsToMinutesSeconds(lastWordEndTime),
+            startTimeInSeconds: currentSegmentStartTime,
+            endTimeInSeconds: lastWordEndTime,
+          });
+        }
+        currentSpeaker = speakerTag;
+        currentSegmentText = `${word} `;
+        currentSegmentStartTime = startTimeInSeconds;
+      } else {
+        currentSegmentText += `${word} `;
+      }
+      lastWordEndTime = endTimeInSeconds;
+    });
+  }); // 마지막 세그먼트 추가
+
+  if (currentSegmentText !== '' && currentSpeaker !== null && currentSegmentStartTime !== null) {
+    segments.push({
+      speaker: currentSpeaker,
+      text: currentSegmentText.trim(),
+      startTime: formatSecondsToMinutesSeconds(currentSegmentStartTime),
+      endTime: formatSecondsToMinutesSeconds(lastWordEndTime),
+      startTimeInSeconds: currentSegmentStartTime,
+      endTimeInSeconds: lastWordEndTime,
+    });
+  } // ⭐ 텍스트 정리
+
+  const processedSegments = segments.map((s) => {
+    const processedText = s.text.replace(/\s/g, '').replace(/▁/g, ' ');
+    return { ...s, text: processedText };
+  });
+
+  const fullTranscript = processedSegments
+    .map((s) => `[사용자 ${s.speaker}] (${s.startTime} - ${s.endTime}) ${s.text}`)
+    .join('\n');
+
+  console.log(`📝 Transcript length: ${fullTranscript.length} characters`);
+
+  return {
+    segments: processedSegments,
+    transcript: fullTranscript,
+  };
+}
+
+// ⭐⭐ POST: STT 처리
 export async function POST(req: Request) {
   const authorizationHeader = req.headers.get('authorization');
-  console.log('API Route POST request received for transcription');
+  console.log('🎬 STT API called');
+
   let speechClient: SpeechClient;
 
   try {
     const googleCreds = getGoogleCredentials();
     speechClient = new SpeechClient(googleCreds);
-    console.log('Google Cloud clients initialized successfully');
+    console.log('✅ Google Cloud client initialized');
   } catch (err) {
-    console.error('Failed to initialize Google Cloud clients. Check credentials:', err);
+    console.error('❌ Failed to initialize Google Cloud client:', err);
     return NextResponse.json(
       { error: 'Server authentication failed. Please check Google Cloud credentials.' },
       { status: 500 }
     );
   }
 
-  const audioChannelCount = 2;
   const bucketName = process.env.GOOGLE_CLOUD_STORAGE_BUCKET;
 
   if (!bucketName) {
-    console.error('GOOGLE_CLOUD_STORAGE_BUCKET environment variable is not set.');
+    console.error('❌ GOOGLE_CLOUD_STORAGE_BUCKET not set');
     return NextResponse.json(
       { error: 'Server configuration error: GCS bucket name is missing.' },
       { status: 500 }
@@ -106,232 +216,103 @@ export async function POST(req: Request) {
     const { audioId, meetingId, duration, initialRecordingOffsetSeconds = 0, meetingMethod } = body;
 
     if (!audioId) {
-      console.error('POST processing: audioId not provided.');
+      console.error('❌ audioId not provided');
       return NextResponse.json({ error: 'Audio ID not provided.' }, { status: 400 });
     }
 
     if (!meetingId) {
-      console.error('POST processing: Meeting ID not provided.');
+      console.error('❌ meetingId not provided');
       return NextResponse.json({ error: 'Meeting ID not provided.' }, { status: 400 });
     }
 
     const meetingIdNum = parseInt(String(meetingId), 10);
     if (isNaN(meetingIdNum)) {
-      console.error('POST processing: Invalid Meeting ID provided.');
+      console.error('❌ Invalid meetingId');
       return NextResponse.json({ error: 'Invalid Meeting ID.' }, { status: 400 });
     }
 
-    const audioDurationInSeconds = parseFloat(String(duration || 0));
-
     const gcsUri = audioId.startsWith('gs://') ? audioId : `gs://${bucketName}/${audioId}`;
-    console.log(`Using GCS URI for STT: ${gcsUri}`);
+    console.log(`📍 GCS URI: ${gcsUri}`);
+    console.log(`📊 Mode: ${meetingMethod || 'NORMAL'}, Offset: ${initialRecordingOffsetSeconds}s`); // ⭐⭐ CHUNK 모드: 단일 청크 STT 처리
 
-    const audio = {
-      uri: gcsUri,
-    };
+    if (meetingMethod === 'CHUNK') {
+      console.log('🔹 CHUNK mode: Processing single chunk');
 
-    const encoding = getEncodingFromUri(gcsUri);
-    console.log(`Detected encoding: ${encoding} from URI: ${gcsUri}`);
-
-    const config = {
-      encoding: encoding as any,
-      sampleRateHertz: 48000,
-      languageCode: 'ko-KR',
-      model: 'latest_long',
-      enableAutomaticPunctuation: true,
-      enableWordTimeOffsets: true,
-      audioChannelCount: audioChannelCount,
-      diarizationConfig: {
-        enableSpeakerDiarization: true,
-        minSpeakerCount: 1,
-        maxSpeakerCount: 5,
-      },
-    };
-
-    console.log('Starting Google STT long-running request...');
-    const [operation] = await speechClient.longRunningRecognize({ config, audio });
-    const [response] = await operation.promise();
-    console.log('Received Google STT response.');
-
-    interface Segment {
-      speaker: number;
-      text: string;
-      startTime: string;
-      endTime: string;
-      startTimeInSeconds: number;
-      endTimeInSeconds: number;
-    }
-
-    const transcriptionSegments: Segment[] = [];
-    let currentSpeaker: number | null = null;
-    let currentSegmentText = '';
-    let currentSegmentRawStartTimeInSeconds: number | null = null;
-    let lastWordEndTimeInSeconds: number = 0;
-
-    response.results?.forEach((result) => {
-      result.alternatives?.[0]?.words?.forEach((wordInfo) => {
-        const speakerTag = wordInfo.speakerTag;
-        const word = wordInfo.word;
-
-        const startSeconds = parseInt((wordInfo.startTime?.seconds as string) || '0', 10);
-        const startNanos = wordInfo.startTime?.nanos || 0;
-        let startTimeInSeconds = startSeconds + startNanos / 1_000_000_000;
-
-        const endSeconds = parseInt((wordInfo.endTime?.seconds as string) || '0', 10);
-        const endNanos = wordInfo.endTime?.nanos || 0;
-        let endTimeInSeconds = endSeconds + endNanos / 1_000_000_000;
-
-        startTimeInSeconds += initialRecordingOffsetSeconds;
-        endTimeInSeconds += initialRecordingOffsetSeconds;
-
-        const silenceDuration =
-          lastWordEndTimeInSeconds > 0 ? startTimeInSeconds - lastWordEndTimeInSeconds : 0;
-
-        if (currentSpeaker === null || speakerTag !== currentSpeaker || silenceDuration >= 5) {
-          if (
-            currentSegmentText !== '' &&
-            currentSpeaker !== null &&
-            currentSegmentRawStartTimeInSeconds !== null
-          ) {
-            transcriptionSegments.push({
-              speaker: currentSpeaker,
-              text: currentSegmentText.trim(),
-              startTime: formatSecondsToMinutesSeconds(currentSegmentRawStartTimeInSeconds),
-              endTime: formatSecondsToMinutesSeconds(lastWordEndTimeInSeconds),
-              startTimeInSeconds: currentSegmentRawStartTimeInSeconds,
-              endTimeInSeconds: lastWordEndTimeInSeconds,
-            });
-          }
-          currentSpeaker = speakerTag;
-          currentSegmentText = `${word} `;
-          currentSegmentRawStartTimeInSeconds = startTimeInSeconds;
-        } else {
-          currentSegmentText += `${word} `;
-        }
-        lastWordEndTimeInSeconds = endTimeInSeconds;
-      });
-    });
-
-    if (
-      currentSegmentText !== '' &&
-      currentSpeaker !== null &&
-      currentSegmentRawStartTimeInSeconds !== null
-    ) {
-      transcriptionSegments.push({
-        speaker: currentSpeaker,
-        text: currentSegmentText.trim(),
-        startTime: formatSecondsToMinutesSeconds(currentSegmentRawStartTimeInSeconds),
-        endTime: formatSecondsToMinutesSeconds(lastWordEndTimeInSeconds),
-        startTimeInSeconds: currentSegmentRawStartTimeInSeconds,
-        endTimeInSeconds: lastWordEndTimeInSeconds,
-      });
-    }
-
-    const uniqueSegments = transcriptionSegments.filter(
-      (segment, index, self) =>
-        index ===
-        self.findIndex((s) => s.text === segment.text && s.startTime === segment.startTime)
-    );
-
-    const processedSegments = uniqueSegments.map((s) => {
-      const processedText = s.text.replace(/\s/g, '').replace(/▁/g, ' ');
-      return { ...s, text: processedText };
-    });
-
-    const fullTranscript = processedSegments
-      .map((s) => `[사용자 ${s.speaker}] (${s.startTime} - ${s.endTime}) ${s.text}`)
-      .join('\n');
-
-    let durationToSave: number;
-
-    if (meetingMethod === 'RECORD') {
-      const lastSegment = processedSegments[processedSegments.length - 1];
-      durationToSave = lastSegment ? Math.floor(lastSegment.endTimeInSeconds) : 0;
-    } else {
-      durationToSave = Math.floor(audioDurationInSeconds);
-    }
-
-    if (durationToSave === 0 && processedSegments.length > 0) {
-      console.log('기본 duration이 0이므로, transcript 파싱으로 보정 시작...');
-      try {
-        const lastParenIndex = fullTranscript.lastIndexOf(')');
-        if (lastParenIndex > 8) {
-          const endTimeString = fullTranscript.substring(lastParenIndex - 8, lastParenIndex);
-          const parsedDuration = hmsToSeconds(endTimeString);
-
-          if (parsedDuration > 0) {
-            durationToSave = parsedDuration;
-            console.log(`파싱 성공. 보정된 duration: ${durationToSave}`);
-          }
-        }
-      } catch (e) {
-        console.error('duration 파싱 중 오류 발생:', e);
-      }
-    }
-
-    try {
-      const updateBackendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingIdNum}/stt-result`; //배포
-      //const updateBackendUrl = `http://localhost:8080/api/v1/meetings/${meetingIdNum}/stt-result`; //로컬
-      console.log(`Calling Spring Boot backend at: ${updateBackendUrl}`);
-
-      const requestBody = {
-        duration: durationToSave,
-        transcript: fullTranscript,
-        audio_id: gcsUri,
-        speechLogs: processedSegments.map((s) => ({
-          speakerIndex: s.speaker,
-          text: s.text,
-          startTime: Math.floor(s.startTimeInSeconds),
-          endTime: Math.floor(s.endTimeInSeconds),
-        })),
-      };
-
-      console.log(
-        `[DEBUG] Sending to backend: duration=${requestBody.duration}, transcript length=${requestBody.transcript.length}, speechLogs count=${requestBody.speechLogs.length}`
+      const { segments, transcript } = await processChunkSTT(
+        speechClient,
+        gcsUri,
+        initialRecordingOffsetSeconds
       );
 
-      const updateResponse = await fetch(updateBackendUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: authorizationHeader || '',
-        },
-        body: JSON.stringify(requestBody),
-      });
+      console.log('✅ Chunk processing completed'); // ⭐ 즉시 결과 반환 (DB 저장 안 함)
 
-      if (!updateResponse.ok) {
-        const errorData = await updateResponse
-          .json()
-          .catch(() => ({ message: 'Unknown backend error' }));
-        console.error(
-          'Backend DB update request failed response:',
-          updateResponse.status,
-          errorData
-        );
-        throw new Error(
-          errorData.message ||
-            `Backend DB update failed: ${updateResponse.status} ${updateResponse.statusText}`
-        );
-      }
-      console.log(
-        `Successfully updated Meeting ID ${meetingIdNum} and saved speech logs via Spring Boot backend`
-      );
-    } catch (backendError) {
-      console.error(
-        `Error calling Spring Boot backend (meeting_id: ${meetingIdNum}):`,
-        backendError
-      );
       return NextResponse.json(
         {
-          error: `Failed to save STT results to DB (Backend error): ${
-            (backendError as Error).message
-          }`,
+          transcript,
+          speechLogs: segments.map((s) => ({
+            speakerIndex: s.speaker,
+            text: s.text,
+            startTime: Math.floor(s.startTimeInSeconds),
+            endTime: Math.floor(s.endTimeInSeconds),
+          })),
+          success: true,
         },
-        { status: 500 }
+        { status: 200 }
+      );
+    } // ⭐⭐ NORMAL/RECORD 모드: 전체 파일 처리 + DB 저장
+
+    console.log('🔹 NORMAL mode: Processing full audio');
+
+    const { segments, transcript } = await processChunkSTT(speechClient, gcsUri, 0);
+
+    console.log('✅ Full audio processing completed'); // 마지막 세그먼트로 duration 계산
+
+    const lastSegment = segments[segments.length - 1];
+    let durationToSave = lastSegment ? Math.floor(lastSegment.endTimeInSeconds) : 0;
+
+    if (durationToSave === 0 && duration) {
+      durationToSave = Math.floor(parseFloat(String(duration)));
+    }
+
+    console.log(`💾 Saving to DB (duration: ${durationToSave}s)`); // ⭐ 백엔드 DB 저장
+
+    const updateBackendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingIdNum}/stt-result`;
+
+    const requestBody = {
+      duration: durationToSave,
+      transcript,
+      audio_id: gcsUri,
+      speechLogs: segments.map((s) => ({
+        speakerIndex: s.speaker,
+        text: s.text,
+        startTime: Math.floor(s.startTimeInSeconds),
+        endTime: Math.floor(s.endTimeInSeconds),
+      })),
+    };
+
+    console.log(`📤 Sending to backend: ${updateBackendUrl}`);
+
+    const updateResponse = await fetch(updateBackendUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: authorizationHeader || '',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!updateResponse.ok) {
+      const errorData = await updateResponse
+        .json()
+        .catch(() => ({ message: 'Unknown backend error' }));
+      console.error('❌ Backend update failed:', updateResponse.status, errorData);
+      throw new Error(
+        errorData.message ||
+          `Backend DB update failed: ${updateResponse.status} ${updateResponse.statusText}`
       );
     }
 
-    console.log('STT conversion successful. Final Transcript:\n', fullTranscript);
+    console.log('✅ Successfully saved to DB');
 
     return NextResponse.json(
       {
@@ -341,14 +322,15 @@ export async function POST(req: Request) {
       { status: 200 }
     );
   } catch (apiError) {
-    console.error('Final error during STT API processing (catch block):', apiError);
+    console.error('❌ STT API error:', apiError);
     return NextResponse.json(
-      { error: `An error occurred during speech analysis request: ${(apiError as Error).message}` },
+      { error: `An error occurred during speech analysis: ${(apiError as Error).message}` },
       { status: 500 }
     );
   }
 }
 
+// ⭐ GET: STT 결과 조회
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const sttResultId = searchParams.get('sttResultId');
@@ -364,8 +346,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: '유효하지 않은 STT Result ID입니다.' }, { status: 400 });
     }
 
-    const backendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`; //배포
-    //const backendUrl = `http://localhost:8080/api/v1/meetings/${meetingId}/stt-result`; //로컬
+    const backendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`;
 
     console.log(`[GET /api/transcribe] 백엔드 URL: ${backendUrl}`);
 
