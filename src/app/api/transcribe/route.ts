@@ -276,7 +276,7 @@ export async function POST(req: Request) {
 
     console.log(`💾 Saving to DB (duration: ${durationToSave}s)`); // ⭐ 백엔드 DB 저장
 
-    const updateBackendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingIdNum}/stt-result`;
+    const updateBackendUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/meetings/${meetingIdNum}/stt-result`;
 
     const requestBody = {
       duration: durationToSave,
@@ -346,7 +346,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: '유효하지 않은 STT Result ID입니다.' }, { status: 400 });
     }
 
-    const backendUrl = `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/meetings/${meetingId}/stt-result`;
 
     console.log(`[GET /api/transcribe] 백엔드 URL: ${backendUrl}`);
 

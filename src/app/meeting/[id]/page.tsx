@@ -702,7 +702,7 @@ export default function MeetingDetailPage() {
       setPostLabel('STT 결과 저장 중...');
 
       const sttSaveResponse = await fetch(
-        `https://api.dotdot.it.kr/api/v1/meetings/${meetingId}/stt-result`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/meetings/${meetingId}/stt-result`,
         {
           method: 'PUT',
           headers: {
