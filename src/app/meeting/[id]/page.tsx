@@ -260,33 +260,6 @@ export default function MeetingDetailPage() {
     return emailRegex.test(email);
   };
 
-  // 참석자 정보 검증 및 경고 표시
-  /*
-  const getParticipantValidationWarnings = () => {
-    const warnings = [];
-    participants.forEach((participant, index) => {
-      if (!participant.email) {
-        warnings.push(`참석자 ${index + 1}: 이메일이 없습니다.`);
-      } else if (!validateEmail(participant.email)) {
-        warnings.push(`참석자 ${index + 1}: 유효하지 않은 이메일 형식입니다.`);
-      }
-      if (!participant.name) {
-        warnings.push(`참석자 ${index + 1}: 이름이 없습니다.`);
-      }
-    });
-    return warnings;
-  };
-  // 참석자 정보 수정 기능
-  const handleUpdateParticipant = (index: number, field: keyof Participant, value: string) => {
-    const updatedParticipants = [...participants];
-    updatedParticipants[index] = {
-      ...updatedParticipants[index],
-      [field]: value,
-    };
-    setParticipants(updatedParticipants);
-  };
-  */
-
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
@@ -730,6 +703,12 @@ export default function MeetingDetailPage() {
         console.log('✅ STT 결과 저장 완료');
       }
 
+      setPostLabel('회의 요약 생성 시작...');
+      await startMeetingSummary(meetingId);
+
+      setPostLabel('회의 요약 생성 중...');
+      await waitForSummary(meetingId);
+
       setPostLabel('태스크 자동 추출 중...');
       const extractRes = await extractMeetingTasks(meetingId, {
         dryRun: true,
@@ -753,15 +732,13 @@ export default function MeetingDetailPage() {
         }))
       );
 
-      // // 3) 멤버 매핑까지 미리 확인
-      // const members = await getTeamMembers(String(teamId));
-      // const nameToId = new Map(members.map((m) => [m.name.trim(), m.userId]));
+      // 3) 멤버 매핑까지 미리 확인
       setPostLabel('태스크 저장 중...');
       if (extractRes?.drafts?.length) {
-        // 팀원 이름 → userId 매핑
+
         const members = await getTeamMembers(String(teamId));
         const nameToId = new Map(members.map((m) => [m.name, m.userId]));
-        // 임시 숫자: 오늘 + N일을 due로 사용
+
         const TEMP_DUE_DAYS = 7;
         const makeTempDueISO = () => {
           const d = new Date();
@@ -771,7 +748,6 @@ export default function MeetingDetailPage() {
         const toPriority = (p: any) =>
           p === 'HIGH' || p === 'LOW' || p === 'MEDIUM' ? p : 'MEDIUM';
 
-        // 초안 각각을 실태스크로 저장
         const results = await Promise.allSettled(
           extractRes.drafts.map((d) => {
             const assigneeId = nameToId.get(d.assigneeName);
@@ -799,12 +775,6 @@ export default function MeetingDetailPage() {
           }
         });
       }
-
-      setPostLabel('회의 요약 생성 시작...');
-      await startMeetingSummary(meetingId);
-
-      setPostLabel('회의 요약 생성 중...');
-      await waitForSummary(meetingId);
 
       setPostLabel('자료 추천 생성 중...');
       await createRecommendations(meetingId, 5);
