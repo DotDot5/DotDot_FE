@@ -569,19 +569,33 @@ export default function MeetingDetailPage() {
       const audioId = await uploadAudioToGCS(file, meetingId);
       setPostLabel(`음성 분석 중...`);
 
-      const splitResponse = await fetch('/api/split-audio', {
+      const token = localStorage.getItem('accessToken');
+
+      const CLOUD_FUNCTION_URL = process.env.NEXT_PUBLIC_CLOUD_FUNCTION_SPLIT_AUDIO_URL;
+      if (!CLOUD_FUNCTION_URL) {
+        toast.error(
+          '설정 오류: Cloud Function URL이 설정되지 않았습니다. 환경 변수를 확인해주세요.'
+        );
+        setIsTranscribing(false);
+        return; // 즉시 함수 종료
+      }
+      const splitResponse = await fetch(CLOUD_FUNCTION_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           gcsUri: audioId,
           meetingId,
           duration: recordingTimeDuration,
+          chunkDuration: 300,
         }),
       });
 
       if (!splitResponse.ok) {
+        const errorDetail = await splitResponse.text();
+        console.error('Cloud Function 분할 에러 상세:', errorDetail);
         throw new Error('오디오 분할 실패');
       }
 
@@ -592,7 +606,6 @@ export default function MeetingDetailPage() {
 
       console.log(`📦 ${chunks.length}개 청크 생성 완료`);
 
-      const token = localStorage.getItem('accessToken');
       const results = [];
 
       const CONCURRENT_LIMIT = 5; // 동시 처리 개수
