@@ -19,14 +19,6 @@ axiosInstance.interceptors.request.use(
     // 디버깅용 로그 (필요 없으면 삭제 가능)
     const auth = config.headers?.Authorization as string | undefined;
     const masked = auth ? auth.slice(0, 12) + '…' + auth.slice(-6) : 'none';
-    console.log(
-      '[dbg][REQ]',
-      config.method?.toUpperCase(),
-      config.baseURL,
-      config.url,
-      'Authorization=',
-      masked
-    );
 
     return config;
   },
@@ -45,10 +37,6 @@ axiosInstance.interceptors.response.use(
 
     // 👇 실패한 요청이 재발급 요청인지 확인하는 변수 추가
     const isReissueRequest = originalRequest.url?.endsWith('/auth/reissue');
-
-    console.log('Axios Interceptor Error:', error.response);
-    console.log('Status:', status);
-    console.log('Error Code:', errorCode);
 
     // [수정] TEAM-004 (접근 권한 없음) 에러 처리
     if (status === 403 && errorCode === 'TEAM-004') {

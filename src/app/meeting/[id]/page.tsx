@@ -254,12 +254,6 @@ export default function MeetingDetailPage() {
     return () => clearInterval(timer);
   }, [meetingId, router]);
 
-  // 이메일 유효성 검증 함수
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
@@ -542,6 +536,44 @@ export default function MeetingDetailPage() {
     }
   };
 
+  const deleteChunksFromGCS = async (chunks: any[]) => {
+    if (!chunks || chunks.length === 0) {
+      return;
+    }
+
+    const token = localStorage.getItem('accessToken');
+
+    try {
+      const response = await fetch('/api/delete-chunks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          gcsUris: chunks.map((chunk) => chunk.gcsUri),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('⚠️ 청크 삭제 API 호출 실패:', errorData);
+        return;
+      }
+
+      const result = await response.json();
+
+      if (result.failedCount > 0) {
+        const failedUris = result.results
+          .filter((r: any) => r.status === 'failed')
+          .map((r: any) => r.uri);
+        console.warn('⚠️ 삭제 실패한 청크:', failedUris);
+      }
+    } catch (error) {
+      console.error('❌ 청크 삭제 중 에러:', error);
+    }
+  };
+
   const handleEndMeeting = async () => {
     try {
       await handleUpdateMeeting();
@@ -604,8 +636,6 @@ export default function MeetingDetailPage() {
 
       const actualDuration = splitResult.totalDuration || recordingTimeDuration;
 
-      console.log(`📦 ${chunks.length}개 청크 생성 완료`);
-
       const results = [];
 
       const CONCURRENT_LIMIT = 5; // 동시 처리 개수
@@ -647,15 +677,9 @@ export default function MeetingDetailPage() {
           const chunk = batch[idx];
 
           if (result.status === 'fulfilled') {
-            console.log(` 청크 ${chunk.chunkIndex + 1} 완료`);
             const transcript = result.value.transcript || '';
             if (!transcript) {
               console.warn(` 청크 ${chunk.chunkIndex + 1}: STT 결과 텍스트가 비어있음`);
-            } else {
-              // 텍스트가 있다면 로그에 출력
-              console.log(
-                ` 청크 ${chunk.chunkIndex + 1} STT 결과: "${transcript.substring(0, 50)}..."`
-              );
             }
             results.push({
               chunkIndex: chunk.chunkIndex,
@@ -703,18 +727,17 @@ export default function MeetingDetailPage() {
           }),
         }
       );
-      console.log('✅ 전체 STT 처리 완료!');
-
-      console.log('================================');
-      console.log(fullTranscript);
-      console.log('================================');
 
       if (!sttSaveResponse.ok) {
         const errorDetail = await sttSaveResponse.text();
         throw new Error(`STT 결과 저장 실패: ${sttSaveResponse.status} - ${errorDetail}`);
-      } else {
-        console.log('✅ STT 결과 저장 완료');
       }
+      await deleteChunksFromGCS(chunks);
+      setPostLabel('회의 요약 생성 시작...');
+      await startMeetingSummary(meetingId);
+
+      setPostLabel('회의 요약 생성 중...');
+      await waitForSummary(meetingId);
 
       setPostLabel('회의 요약 생성 시작...');
       await startMeetingSummary(meetingId);
@@ -731,9 +754,6 @@ export default function MeetingDetailPage() {
         defaultDueDays: 7,
       });
 
-      // 1) 원본 응답을 통째로 확인
-      console.log('[extractRes raw]', JSON.stringify(extractRes, null, 2));
-
       // 2) 필수 필드들이 유효한지 빠르게 테이블 체크
       console.table(
         (extractRes?.drafts ?? []).map((d) => ({
@@ -748,7 +768,6 @@ export default function MeetingDetailPage() {
       // 3) 멤버 매핑까지 미리 확인
       setPostLabel('태스크 저장 중...');
       if (extractRes?.drafts?.length) {
-
         const members = await getTeamMembers(String(teamId));
         const nameToId = new Map(members.map((m) => [m.name, m.userId]));
 

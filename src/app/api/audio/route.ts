@@ -22,8 +22,6 @@ function initializeStorageClient(): Storage {
 }
 
 export async function GET(request: NextRequest) {
-  console.log('Audio API GET request received');
-
   const { searchParams } = new URL(request.url);
   const meetingId = searchParams.get('meetingId');
   const audioId = searchParams.get('audioId');
@@ -53,7 +51,6 @@ export async function GET(request: NextRequest) {
 
     try {
       storageClient = initializeStorageClient();
-      console.log('Google Cloud Storage client initialized successfully');
     } catch (err) {
       console.error('Failed to initialize Google Cloud Storage client:', err);
       return NextResponse.json(
@@ -66,8 +63,6 @@ export async function GET(request: NextRequest) {
     let targetFile;
 
     if (audioId) {
-      console.log(`Processing audioId: ${audioId}`);
-
       if (audioId.startsWith('gs://')) {
         const urlParts = audioId.replace('gs://', '').split('/');
         const bucketFromUrl = urlParts[0];
@@ -78,7 +73,6 @@ export async function GET(request: NextRequest) {
         }
 
         targetFile = bucket.file(filePath);
-        console.log(`Target file from GCS URI: ${filePath}`);
       } else if (audioId.startsWith('https://')) {
         return NextResponse.json({
           audioUrl: audioId,
@@ -87,12 +81,10 @@ export async function GET(request: NextRequest) {
         });
       } else {
         targetFile = bucket.file(audioId);
-        console.log(`Target file from relative path: ${audioId}`);
       }
 
       const [exists] = await targetFile.exists();
       if (!exists) {
-        console.log(`Audio file not found: ${audioId}`);
         return NextResponse.json(
           { error: '요청된 오디오 파일을 찾을 수 없습니다.' },
           { status: 404 }
@@ -104,7 +96,6 @@ export async function GET(request: NextRequest) {
       });
 
       if (files.length === 0) {
-        console.log(`No audio files found for meeting ID: ${meetingId}`);
         return NextResponse.json(
           { error: '해당 회의의 오디오 파일을 찾을 수 없습니다.' },
           { status: 404 }
@@ -113,8 +104,6 @@ export async function GET(request: NextRequest) {
 
       targetFile = files.sort((a, b) => b.name.localeCompare(a.name))[0];
     }
-
-    console.log(`Processing audio file: ${targetFile.name}`);
 
     // 파일의 실제 메타데이터 먼저 가져오기
     const [metadata] = await targetFile.getMetadata();
@@ -128,8 +117,6 @@ export async function GET(request: NextRequest) {
     };
 
     const [signedUrl] = await targetFile.getSignedUrl(options);
-
-    console.log(`Generated signed URL for audio file: ${targetFile.name}`);
 
     return NextResponse.json({
       audioUrl: signedUrl,
@@ -157,8 +144,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
-  console.log('Audio API POST request received for Signed URL generation');
-
   try {
     const body = await request.json();
     const { meetingId, fileName, contentType } = body;
@@ -195,8 +180,6 @@ export async function POST(request: Request) {
       expires: Date.now() + 180 * 60 * 1000, // 180분 유효
       contentType: contentType || 'audio/webm',
     });
-
-    console.log(`Generated signed upload URL for: gs://${bucketName}/${gcsPath}`);
 
     return NextResponse.json({
       uploadUrl,

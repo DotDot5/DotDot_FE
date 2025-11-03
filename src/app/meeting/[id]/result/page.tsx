@@ -188,16 +188,11 @@ export default function MeetingPage() {
 
   const sp = useSearchParams();
   const params = useParams<{ id?: string; meetingId?: string }>();
-
-  console.log('[dbg] params=', params, 'search=', sp.toString());
-
   const qp = sp.get('meetingId') ?? undefined;
   const pp = params?.id ?? params?.meetingId;
   const meetingId =
     (qp && /^\d+$/.test(qp) ? Number(qp) : undefined) ??
     (pp && /^\d+$/.test(String(pp)) ? Number(pp) : undefined);
-  console.log('[dbg] meetingId=', meetingId);
-
   const { data: detail } = useMeetingDetail(meetingId);
   const { data: summary, isLoading: loadingSummary } = useMeetingSummary(meetingId);
   const { data: recs, isLoading: loadingRecs } = useMeetingRecommendations(meetingId);
@@ -214,10 +209,7 @@ export default function MeetingPage() {
   const taskItems = data?.items || [];
   const taskSummary = data?.data?.summary;
 
-  useEffect(() => {
-    console.log('[dbg] summary=', summary);
-    console.log('[dbg] recs=', recs);
-  }, [summary, recs]);
+  useEffect(() => {}, [summary, recs]);
 
   const participants = detail?.participants ?? [];
   const [checked, setChecked] = useState<boolean[]>([]);

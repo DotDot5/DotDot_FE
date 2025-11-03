@@ -14,7 +14,6 @@ export default function DashboardPage() {
     // 로그인 상태 확인
     const accessToken = localStorage.getItem('accessToken');
     if (!accessToken) {
-      console.log('토큰이 없습니다. 로그인 페이지로 이동합니다.');
       router.push('/auth/login');
       return;
     }
@@ -29,7 +28,6 @@ export default function DashboardPage() {
         console.error('회의 목록 조회 실패:', error);
         // 401 에러인 경우 토큰 만료로 간주하고 로그인 페이지로 이동
         if (error?.response?.status === 401) {
-          console.log('토큰이 만료되었습니다. 로그인 페이지로 이동합니다.');
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           router.push('/auth/login');
