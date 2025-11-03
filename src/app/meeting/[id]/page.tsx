@@ -739,6 +739,12 @@ export default function MeetingDetailPage() {
       setPostLabel('회의 요약 생성 중...');
       await waitForSummary(meetingId);
 
+      setPostLabel('회의 요약 생성 시작...');
+      await startMeetingSummary(meetingId);
+
+      setPostLabel('회의 요약 생성 중...');
+      await waitForSummary(meetingId);
+
       setPostLabel('태스크 자동 추출 중...');
       const extractRes = await extractMeetingTasks(meetingId, {
         dryRun: true,
