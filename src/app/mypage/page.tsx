@@ -62,7 +62,6 @@ export default function MyPage() {
         email: profileData.email,
         profileImageUrl: newImageUrl,
       };
-      console.log(finalProfileData);
 
       const responseData = await updateUserProfile(finalProfileData);
 

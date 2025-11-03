@@ -25,13 +25,6 @@ export interface AudioPlayerHandle {
 
 const EnhancedAudioPlayer = forwardRef<AudioPlayerHandle, EnhancedAudioPlayerProps>(
   ({ audioUrl, speechLogs = [], title = '회의 오디오', onTimeUpdate, initialDuration }, ref) => {
-    console.log('[EnhancedAudioPlayer Props]', {
-      audioUrl,
-      speechLogs,
-      title,
-      initialDuration,
-    });
-
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(initialDuration || 0);
@@ -45,9 +38,6 @@ const EnhancedAudioPlayer = forwardRef<AudioPlayerHandle, EnhancedAudioPlayerPro
     useEffect(() => {
       const audio = audioRef.current;
       if (!audio) return;
-
-      console.log('[EnhancedAudioPlayer] useEffect triggered. URL:', audioUrl);
-
       if (initialDuration) {
         setDuration(initialDuration);
         setIsLoading(false);
@@ -55,7 +45,6 @@ const EnhancedAudioPlayer = forwardRef<AudioPlayerHandle, EnhancedAudioPlayerPro
 
       const handleMetadata = () => {
         if (!initialDuration && audio && isFinite(audio.duration)) {
-          console.log('[EnhancedAudioPlayer] Duration from metadata:', audio.duration);
           setDuration(audio.duration);
         }
         setIsLoading(false);
@@ -150,10 +139,22 @@ const EnhancedAudioPlayer = forwardRef<AudioPlayerHandle, EnhancedAudioPlayerPro
     const skipTime = (seconds: number) => seekToTime(currentTime + seconds);
 
     const formatTime = (time: number): string => {
-      if (isNaN(time) || !isFinite(time)) return '00:00';
-      const minutes = Math.floor(time / 60);
-      const seconds = Math.floor(time % 60);
-      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      if (isNaN(time) || !isFinite(time) || time < 0) return '00:00';
+
+      const totalSeconds = Math.floor(time);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      const paddedHours = hours.toString().padStart(2, '0');
+      const paddedSeconds = seconds.toString().padStart(2, '0');
+      const paddedMinutes = minutes.toString().padStart(2, '0');
+
+      if (hours > 0) {
+        return `${paddedHours}:${paddedMinutes}:${paddedSeconds}`;
+      } else {
+        return `${paddedMinutes}:${paddedSeconds}`;
+      }
     };
 
     return (

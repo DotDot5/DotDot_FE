@@ -113,7 +113,6 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
   const handleNoticeSave = async () => {
     try {
       await updateTeamNotice(teamId, noticeText);
-      console.log('공지사항 수정 성공');
       setOriginalNotice(noticeText);
       setIsEditingNotice(false);
     } catch (error) {
@@ -335,7 +334,9 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
       <div className="px-8 py-8 bg-white rounded-t-3xl -mt-6 relative">
         {/* Notice and Team Members Section - Split into two cards */}
         <div
-          className={`grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 ${isCollapsed ? 'items-stretch' : 'items-start'}`}
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 ${
+            isCollapsed ? 'items-stretch' : 'items-start'
+          }`}
         >
           {/* Notice Section */}
           <div className={`bg-gray-50 rounded-2xl p-6 shadow-sm ${isCollapsed ? 'h-full' : ''}`}>
@@ -432,7 +433,9 @@ export default function WorkspaceMain({ onRefreshMeetings }: { onRefreshMeetings
           {/* Team Members Section */}
           <div
             ref={teamCardRef}
-            className={`bg-gray-50 rounded-2xl p-6 shadow-sm ${isCollapsed ? 'h-full' : 'self-start'}`}
+            className={`bg-gray-50 rounded-2xl p-6 shadow-sm ${
+              isCollapsed ? 'h-full' : 'self-start'
+            }`}
             style={!isCollapsed && teamBaseHeight ? { minHeight: teamBaseHeight } : undefined}
           >
             <div className="flex items-center justify-between mb-4">

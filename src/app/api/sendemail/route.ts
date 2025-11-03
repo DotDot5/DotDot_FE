@@ -19,11 +19,6 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('📧 이메일 발송 요청:');
-    console.log('수신자:', to);
-    console.log('제목:', subject);
-    console.log('수신자 수:', to.length);
-
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -40,9 +35,6 @@ export async function POST(request: Request) {
     };
 
     const info = await transporter.sendMail(mailOptions);
-
-    console.log('이메일 발송 성공!');
-    console.log('Message ID:', info.messageId);
 
     return NextResponse.json({
       success: true,
