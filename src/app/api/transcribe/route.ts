@@ -75,14 +75,12 @@ async function processChunkSTT(
   gcsUri: string,
   offsetSeconds: number = 0
 ): Promise<{ segments: Segment[]; transcript: string }> {
-  console.log(`🎤 STT 시작: ${gcsUri} (offset: ${offsetSeconds}s)`);
-
   const encoding = getEncodingFromUri(gcsUri);
   const audio = { uri: gcsUri };
 
   const config = {
     encoding: encoding as any,
-    sampleRateHertz: 48000,
+    sampleRateHertz: 16000,
     languageCode: 'ko-KR',
     model: 'latest_long',
     enableAutomaticPunctuation: true,
@@ -97,13 +95,9 @@ async function processChunkSTT(
     },
   };
 
-  console.log('🚀 Starting Google STT...');
   const [operation] = await speechClient.longRunningRecognize({ config, audio });
 
-  console.log('⏳ Waiting for STT completion...');
   const [response] = await operation.promise();
-
-  console.log('✅ STT completed, processing segments...'); // ⭐ 세그먼트 추출
 
   const segments: Segment[] = [];
   let currentSpeaker: number | null = null;
@@ -174,8 +168,6 @@ async function processChunkSTT(
     .map((s) => `[사용자 ${s.speaker}] (${s.startTime} - ${s.endTime}) ${s.text}`)
     .join('\n');
 
-  console.log(`📝 Transcript length: ${fullTranscript.length} characters`);
-
   return {
     segments: processedSegments,
     transcript: fullTranscript,
@@ -185,14 +177,12 @@ async function processChunkSTT(
 // ⭐⭐ POST: STT 처리
 export async function POST(req: Request) {
   const authorizationHeader = req.headers.get('authorization');
-  console.log('🎬 STT API called');
 
   let speechClient: SpeechClient;
 
   try {
     const googleCreds = getGoogleCredentials();
     speechClient = new SpeechClient(googleCreds);
-    console.log('✅ Google Cloud client initialized');
   } catch (err) {
     console.error('❌ Failed to initialize Google Cloud client:', err);
     return NextResponse.json(
@@ -232,19 +222,13 @@ export async function POST(req: Request) {
     }
 
     const gcsUri = audioId.startsWith('gs://') ? audioId : `gs://${bucketName}/${audioId}`;
-    console.log(`📍 GCS URI: ${gcsUri}`);
-    console.log(`📊 Mode: ${meetingMethod || 'NORMAL'}, Offset: ${initialRecordingOffsetSeconds}s`); // ⭐⭐ CHUNK 모드: 단일 청크 STT 처리
 
     if (meetingMethod === 'CHUNK') {
-      console.log('🔹 CHUNK mode: Processing single chunk');
-
       const { segments, transcript } = await processChunkSTT(
         speechClient,
         gcsUri,
         initialRecordingOffsetSeconds
       );
-
-      console.log('✅ Chunk processing completed'); // ⭐ 즉시 결과 반환 (DB 저장 안 함)
 
       return NextResponse.json(
         {
@@ -259,13 +243,9 @@ export async function POST(req: Request) {
         },
         { status: 200 }
       );
-    } // ⭐⭐ NORMAL/RECORD 모드: 전체 파일 처리 + DB 저장
-
-    console.log('🔹 NORMAL mode: Processing full audio');
+    }
 
     const { segments, transcript } = await processChunkSTT(speechClient, gcsUri, 0);
-
-    console.log('✅ Full audio processing completed'); // 마지막 세그먼트로 duration 계산
 
     const lastSegment = segments[segments.length - 1];
     let durationToSave = lastSegment ? Math.floor(lastSegment.endTimeInSeconds) : 0;
@@ -273,8 +253,6 @@ export async function POST(req: Request) {
     if (durationToSave === 0 && duration) {
       durationToSave = Math.floor(parseFloat(String(duration)));
     }
-
-    console.log(`💾 Saving to DB (duration: ${durationToSave}s)`); // ⭐ 백엔드 DB 저장
 
     const updateBackendUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/meetings/${meetingIdNum}/stt-result`;
 
@@ -289,8 +267,6 @@ export async function POST(req: Request) {
         endTime: Math.floor(s.endTimeInSeconds),
       })),
     };
-
-    console.log(`📤 Sending to backend: ${updateBackendUrl}`);
 
     const updateResponse = await fetch(updateBackendUrl, {
       method: 'PUT',
@@ -311,8 +287,6 @@ export async function POST(req: Request) {
           `Backend DB update failed: ${updateResponse.status} ${updateResponse.statusText}`
       );
     }
-
-    console.log('✅ Successfully saved to DB');
 
     return NextResponse.json(
       {
@@ -347,8 +321,6 @@ export async function GET(request: Request) {
     }
 
     const backendUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/meetings/${meetingId}/stt-result`;
-
-    console.log(`[GET /api/transcribe] 백엔드 URL: ${backendUrl}`);
 
     const response = await fetch(backendUrl, {
       method: 'GET',

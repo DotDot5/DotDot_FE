@@ -133,10 +133,6 @@ export default function MeetingDetailPage() {
   }, [summary]);
 
   useEffect(() => {
-    console.log('=== 환경변수 확인 ===');
-    console.log('NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
-    console.log('NODE_ENV:', process.env.NODE_ENV);
-    console.log('현재 도메인:', window.location.origin);
     if (isNaN(meetingId)) {
       setLoading(false);
       setError('잘못된 회의 ID입니다.');
@@ -155,10 +151,6 @@ export default function MeetingDetailPage() {
       if (!meetingId) return;
       setLoading(true);
       setError(null);
-
-      console.log('=== fetchData 시작 ===');
-      console.log('meetingId:', meetingId);
-
       try {
         const detailAny = await getMeetingDetail(meetingId);
 
@@ -179,39 +171,22 @@ export default function MeetingDetailPage() {
           return 'NONE'; // 그 외(미설정 포함)는 NONE 처리
         };
 
-        console.log('=== STT 결과 조회 시작 ===');
         const stt = await getMeetingSttResult(meetingId);
-        console.log('배포환경 STT 결과 전체:', stt);
-        console.log('배포환경 speechLogs 첫 번째 항목:', stt?.speechLogs?.[0]);
-        console.log('배포환경 speechLogs 개수:', stt?.speechLogs?.length);
         setSttResult(stt);
 
         if (stt?.audioId) {
-          console.log('=== 오디오 처리 시작 ===');
-          console.log('원본 audioId:', stt.audioId);
-          console.log('audioId 타입:', typeof stt.audioId);
-
           if (stt.audioId.startsWith('gs://')) {
-            console.log('GCS URL 감지, 서명된 URL 생성 시도...');
             try {
               const encodedAudioId = encodeURIComponent(stt.audioId);
               const apiUrl = `/api/audio?audioId=${encodedAudioId}`;
-              console.log('API 호출 URL:', apiUrl);
 
               const audioResponse = await fetch(apiUrl);
-              console.log('오디오 API 응답 상태:', audioResponse.status);
 
               if (audioResponse.ok) {
                 const audioData = await audioResponse.json();
-                console.log('서명된 URL 생성 성공:', audioData.audioUrl);
                 setAudioUrl(audioData.audioUrl);
               } else {
-                console.error('오디오 API 응답 실패 Status:', audioResponse.status);
                 const errorData = await audioResponse.json();
-                console.error('--- 상세 오류  ---');
-                console.error('Error Name:', errorData.name);
-                console.error('Error Details:', errorData.details);
-                toast.error(`오디오 처리 실패: ${errorData.details || '서버 오류'}`);
                 setAudioUrl(null);
               }
             } catch (audioError) {
@@ -220,15 +195,11 @@ export default function MeetingDetailPage() {
               setAudioUrl(null); // 에러 시 오디오 비활성화
             }
           } else if (stt.audioId.startsWith('https://')) {
-            console.log('HTTPS URL 직접 사용:', stt.audioId);
             setAudioUrl(stt.audioId);
           } else {
-            console.log('일반 파일 경로, 직접 사용:', stt.audioId);
             setAudioUrl(stt.audioId);
           }
-          console.log('=== 오디오 처리 완료 ===');
         } else {
-          console.log('audioId가 없음, 오디오 플레이어 비활성화');
           setAudioUrl(null);
         }
 
@@ -252,9 +223,6 @@ export default function MeetingDetailPage() {
             : [],
           duration: raw.duration,
         };
-
-        console.log('=== 최종 매핑된 데이터 ===');
-        console.log('mapped meetingDetail:', mapped);
         setMeetingDetail(mapped);
         // 편집 상태 초기화
         setEditableAgendas(mapped.agendas);
@@ -267,7 +235,6 @@ export default function MeetingDetailPage() {
         }
       } finally {
         setLoading(false);
-        console.log('=== fetchData 완료 ===');
       }
     };
 
@@ -372,10 +339,6 @@ export default function MeetingDetailPage() {
 
   // 북마크 토글 핸들러
   const handleBookmarkToggle = async (speechLogId: number) => {
-    console.log('북마크 클릭된 speechLogId:', speechLogId);
-    console.log('speechLogId 타입:', typeof speechLogId);
-    console.log('speechLogId가 undefined인가?:', speechLogId === undefined);
-
     // speechLogId가 undefined면 early return
     if (!speechLogId || speechLogId === undefined) {
       console.error('speechLogId가 유효하지 않습니다:', speechLogId);
@@ -413,8 +376,6 @@ export default function MeetingDetailPage() {
       </div>
     );
   }
-
-  console.log('EnhancedAudioPlayer에 전달될 데이터 확인:', meetingDetail);
 
   return (
     <div className="flex h-full overflow-hidden">

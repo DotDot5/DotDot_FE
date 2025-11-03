@@ -43,15 +43,6 @@ export default function MeetingCreateModal({
   const currentTeamId =
     mode === 'edit' && existingMeeting?.teamId ? existingMeeting.teamId : propTeamId;
 
-  console.log(
-    'MeetingCreateModal - mode:',
-    mode,
-    'currentTeamId:',
-    currentTeamId,
-    'existingMeeting:',
-    existingMeeting
-  );
-
   const [title, setTitle] = useState(existingMeeting?.title || '');
   const [date, setDate] = useState<Date | undefined>(existingMeeting?.date || new Date());
   const [time, setTime] = useState(
@@ -144,7 +135,6 @@ export default function MeetingCreateModal({
       setMembers(editMembers);
       setSelectedMembers(editMembers);
       setIsEditModeInitialized(true);
-      console.log('Edit mode initialized with members:', editMembers);
     } else if (mode === 'create' && !isEditModeInitialized) {
       // 생성 모드에서는 selectedMembers와 동기화
       setMembers(selectedMembers);
@@ -228,8 +218,6 @@ export default function MeetingCreateModal({
       setMembers(updatedMembers);
       setSelectedMembers([...selectedMembers, newMember]);
     }
-
-    console.log('Member selection toggled:', member.name, 'isSelected:', isSelected);
   };
 
   // view 페이지와 동일한 색깔 배정 로직
@@ -287,7 +275,6 @@ export default function MeetingCreateModal({
     );
 
     setOpenRoleDropdown(null);
-    console.log('Member role updated:', updated[index].name, 'to', role);
   };
 
   const removeMember = (index: number) => {
